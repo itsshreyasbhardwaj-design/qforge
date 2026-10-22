@@ -339,6 +339,8 @@ pnpm typecheck         # project-wide TypeScript
 | [development-journal.md](docs/development-journal.md)           | What actually went wrong, and how it was found                            |
 | [classical-control-design.md](docs/classical-control-design.md) | `if`, predication, and why the optimiser cannot move across a measurement |
 | [independent-audit.md](docs/independent-audit.md)               | The audit that preceded 0.2, and the five defects it found                |
+| [audit-0.2.md](docs/audit-0.2.md)                               | The 0.2 release audit: what was checked, what was not, what is next       |
+| [release.md](docs/release.md)                                   | Pre-release checklist, and the deployment settings (not applied)          |
 | [validation-report.md](docs/validation-report.md)               | Cross-validation against Qiskit                                           |
 | [limitations.md](docs/limitations.md)                           | What QForge does not do                                                   |
 | [benchmarks.md](docs/benchmarks.md)                             | Measured performance                                                      |
