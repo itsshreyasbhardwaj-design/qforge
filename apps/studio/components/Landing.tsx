@@ -76,7 +76,7 @@ const EVIDENCE = [
     figure: '42 / 42',
     label: 'generated OpenQASM 3 files Qiskit reads back to the same circuit',
   },
-  { figure: '700', label: 'unit tests, plus 66 browser tests on desktop and a Pixel 7' },
+  { figure: '700', label: 'unit tests, plus 68 browser tests on desktop and a Pixel 7' },
   { figure: '0', label: 'third-party runtime dependencies in the four core packages' },
 ];
 

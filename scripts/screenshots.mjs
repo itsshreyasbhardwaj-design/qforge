@@ -54,7 +54,7 @@ try {
       viewport: { width: 1600, height: 950 },
       deviceScaleFactor: 2,
     });
-    await page.goto(BASE);
+    await page.goto(`${BASE}/studio`);
     await page.locator('.monaco-editor').first().waitFor({ timeout: 60_000 });
 
     // Step twice to the Bell state, then run, so the capture shows real numbers.
@@ -104,13 +104,49 @@ try {
     await page.close();
   }
 
+  // --- a guided walkthrough, driving the panel beside it ---
+  {
+    const page = await browser.newPage({
+      viewport: { width: 1600, height: 950 },
+      deviceScaleFactor: 2,
+    });
+    await page.goto(`${BASE}/studio`);
+    await page.locator('.monaco-editor').first().waitFor({ timeout: 60_000 });
+
+    await page.getByRole('button', { name: 'Learn', exact: true }).click();
+    const panel = page.getByTestId('panel-lessons');
+    await panel.getByRole('button', { name: /^Entanglement/ }).click();
+    // Step to the claim about both Bloch vectors collapsing, so the capture
+    // shows the lesson's text beside the numbers that make it true.
+    for (let i = 0; i < 2; i++) {
+      await panel.getByRole('button', { name: 'Next', exact: true }).click();
+      await page.waitForTimeout(400);
+    }
+    await page.screenshot({ path: `${OUT}/walkthrough.png` });
+    shots.push('walkthrough.png');
+    await page.close();
+  }
+
+  // --- landing page ---
+  {
+    const page = await browser.newPage({
+      viewport: { width: 1280, height: 900 },
+      deviceScaleFactor: 2,
+    });
+    await page.goto(BASE);
+    await page.getByRole('heading', { name: 'QForge', exact: true }).waitFor();
+    await page.screenshot({ path: `${OUT}/landing.png` });
+    shots.push('landing.png');
+    await page.close();
+  }
+
   // --- mobile ---
   {
     const page = await browser.newPage({
       viewport: { width: 390, height: 844 },
       deviceScaleFactor: 2,
     });
-    await page.goto(BASE);
+    await page.goto(`${BASE}/studio`);
     await page.locator('.monaco-editor').first().waitFor({ timeout: 60_000 });
     await page.getByRole('tab', { name: /^Circuit/ }).click();
     await page.waitForTimeout(500);

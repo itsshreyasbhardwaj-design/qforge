@@ -130,6 +130,11 @@ Or open the studio:
 pnpm dev     # http://localhost:3147 is the landing page; the studio is at /studio
 ```
 
+![The landing page](docs/screenshots/landing.png)
+
+_`/` says what QForge does and what it does not in the same two columns, and
+carries the AI-assistance disclosure in its footer. `/studio` is the tool._
+
 ## How the compiler works
 
 ```
@@ -302,6 +307,16 @@ Each is executed by CI and checked against its own documentation.
 | `deutsch-jozsa-constant.qf` | The same circuit, constant oracle                             |
 | `mid-circuit-measure.qf`    | Collapse, and what `reset` really does                        |
 | `optimisable.qf`            | A circuit the optimiser shrinks, and what it refuses to touch |
+
+## Guided walkthroughs
+
+![The entanglement walkthrough, beside the panel that proves its claim](docs/screenshots/walkthrough.png)
+
+_Four walkthroughs — superposition, interference, entanglement and
+teleportation — drive the editor, the debugger and the panels as you read. This
+step claims both Bloch vectors collapse to length 0; the panel beside it is the
+simulator's own answer, not a number written into the lesson. The e2e suite
+asserts the same values, so a lesson that became wrong would fail CI._
 
 ## The studio on a phone
 

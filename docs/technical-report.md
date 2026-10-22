@@ -420,7 +420,7 @@ amplitudes rather than combining them.
 
 ### 8.3 Test suite
 
-700 unit tests across 22 files, plus 66 browser tests run against both a
+700 unit tests across 22 files, plus 68 browser tests run against both a
 desktop viewport and a Pixel 7. Coverage is 92.8% of statements, 85.27% of
 branches, 96.29% of functions and 94.29% of lines.
 

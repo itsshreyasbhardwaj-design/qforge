@@ -25,7 +25,7 @@ All commands run from the repository root after `pnpm install && pnpm build`.
 | Claim                                                  | How to check                                | Expected                                                          |
 | ------------------------------------------------------ | ------------------------------------------- | ----------------------------------------------------------------- |
 | 700 unit tests pass                                    | `pnpm test`                                 | `Test Files 22 passed (22)`, `Tests 700 passed (700)`             |
-| 66 browser tests pass                                  | `pnpm test:e2e`                             | `66 passed`, across a desktop viewport and a Pixel 7              |
+| 68 browser tests pass                                  | `pnpm test:e2e`                             | `68 passed`, across a desktop viewport and a Pixel 7              |
 | Coverage                                               | `pnpm coverage`                             | 92.8% statements, 85.27% branches, 96.29% functions, 94.29% lines |
 | Every example runs and matches its stated expectations | `pnpm examples`                             | `All 13 examples compile, run and are canonically formatted.`     |
 | Agreement with Qiskit on statevectors                  | `pnpm --filter @qforge/validation validate` | 33 circuits, worst amplitude difference 1.241e-16, 0 failures     |
