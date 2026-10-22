@@ -2,11 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { isTrivia, type Token } from '@qforge/language';
-import {
-  emitOpenQasm3,
-  printIr,
-  type CompileResult,
-} from '@qforge/compiler';
+import { emitOpenQasm3, printIr, type CompileResult } from '@qforge/compiler';
 import { Tabs, TabPanel } from './Tabs';
 import { OptimisationExplorer } from './OptimisationExplorer';
 
