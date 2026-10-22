@@ -24,6 +24,7 @@ import { StateInspector } from './StateInspector';
 import { ProbabilityChart } from './ProbabilityChart';
 import { BlochPanel } from './BlochPanel';
 import { DiagnosticsList } from './DiagnosticsList';
+import { GateInspector } from './GateInspector';
 import { Tabs, TabPanel } from './Tabs';
 
 const DEFAULT_SOURCE =
@@ -167,8 +168,12 @@ export function Studio() {
       setStepIndex(index);
       const instruction = module?.instructions[index];
       if (instruction) handleReveal(instruction.loc.start);
+      // Clicking a gate is a request to understand it, so show the panel that
+      // explains what it did rather than leaving the user to find the tab.
+      if (narrow) setNarrowTab('results');
+      setRightTab('gate');
     },
-    [handleReveal, module],
+    [handleReveal, module, narrow],
   );
 
   const handleFormat = useCallback(() => {
@@ -344,6 +349,7 @@ export function Studio() {
   );
 
   const resultsTabs = [
+    { id: 'gate', label: 'Gate' },
     { id: 'state', label: 'State' },
     { id: 'probabilities', label: 'Probabilities' },
     { id: 'counts', label: 'Counts' },
@@ -375,6 +381,9 @@ export function Studio() {
         onChange={setRightTab}
         ariaLabel="Result views"
       />
+      <TabPanel id="gate" active={rightTab}>
+        <GateInspector module={module} trace={trace} stepIndex={stepIndex} />
+      </TabPanel>
       <TabPanel id="state" active={rightTab}>
         <StateInspector
           state={currentState}
@@ -456,6 +465,7 @@ export function Studio() {
           optimize={optimize}
           onReveal={handleReveal}
           caretOffset={caretOffset}
+          onEnableOptimise={() => setOptimize(true)}
         />
       </div>
     </section>

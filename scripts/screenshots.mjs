@@ -73,18 +73,29 @@ try {
     await page.getByTestId('panel-compiler').screenshot({ path: `${OUT}/compiler-ir.png` });
     shots.push('compiler-ir.png');
 
-    // --- the optimiser's pass report ---
+    // --- the optimisation explorer ---
     await page.locator('#qf-example').selectOption('optimisable');
-    await page.getByRole('checkbox', { name: 'Optimise' }).check();
     await page.waitForTimeout(500);
-    await page.getByRole('tab', { name: 'Passes' }).click();
-    await page.waitForTimeout(300);
+    await page.getByRole('tab', { name: 'Optimiser' }).click();
+    await page.getByRole('button', { name: 'Turn on optimisation' }).click();
+    await page.waitForTimeout(600);
     await page.getByTestId('panel-compiler').screenshot({ path: `${OUT}/optimiser.png` });
     shots.push('optimiser.png');
 
-    // --- debugger mid-measurement ---
+    // --- the gate inspector, which is the state explorer's detail view ---
     await page.locator('#qf-example').selectOption('bell');
     await page.waitForTimeout(500);
+    await page.getByRole('button', { name: 'Step', exact: true }).click();
+    await page.getByRole('button', { name: 'Step', exact: true }).click();
+    await page.waitForTimeout(400);
+    await page.getByRole('tab', { name: 'Gate' }).click();
+    await page.waitForTimeout(300);
+    await page.getByTestId('panel-results').screenshot({ path: `${OUT}/gate-inspector.png` });
+    shots.push('gate-inspector.png');
+
+    // --- debugger mid-measurement, on the circuit that needs feed-forward ---
+    await page.locator('#qf-example').selectOption('teleportation');
+    await page.waitForTimeout(600);
     await page.getByRole('button', { name: 'To end' }).click();
     await page.waitForTimeout(400);
     await page.getByTestId('panel-debugger').screenshot({ path: `${OUT}/debugger.png` });

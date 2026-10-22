@@ -163,6 +163,15 @@ cx control, target;
 Declare it first, for example 'qubit target;'.
 ```
 
+![The gate inspector explaining a controlled-NOT](docs/screenshots/gate-inspector.png)
+
+_The gate inspector, after stepping onto the CX of the Bell example. Every
+statement it makes is computed from the two states either side of the
+instruction — the amplitude table, the interference observation, the per-qubit
+purity. Nothing is a stored description of what a gate "usually" does, and
+nothing is generated text: a plausible but wrong explanation of a quantum
+circuit is worse than none, because a learner has no way to tell._
+
 ![The compiler inspector showing the lowered IR](docs/screenshots/compiler-ir.png)
 
 _The IR view: qubits as `%0` and `%1`, classical bits as `$0`, and a source

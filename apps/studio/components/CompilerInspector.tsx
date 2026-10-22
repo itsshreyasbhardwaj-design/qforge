@@ -3,13 +3,12 @@
 import { useMemo, useState } from 'react';
 import { isTrivia, type Token } from '@qforge/language';
 import {
-  DEFAULT_PASSES,
   emitOpenQasm3,
-  formatOptimizationReport,
   printIr,
   type CompileResult,
 } from '@qforge/compiler';
 import { Tabs, TabPanel } from './Tabs';
+import { OptimisationExplorer } from './OptimisationExplorer';
 
 export interface CompilerInspectorProps {
   readonly compiled: CompileResult | undefined;
@@ -18,6 +17,7 @@ export interface CompilerInspectorProps {
   readonly onReveal: (offset: number) => void;
   /** Caret offset in the editor, used to highlight the matching stage rows. */
   readonly caretOffset: number;
+  readonly onEnableOptimise: () => void;
 }
 
 /**
@@ -35,6 +35,7 @@ export function CompilerInspector({
   optimize,
   onReveal,
   caretOffset,
+  onEnableOptimise,
 }: CompilerInspectorProps) {
   const [active, setActive] = useState('tokens');
 
@@ -51,7 +52,7 @@ export function CompilerInspector({
     { id: 'tokens', label: 'Tokens', badge: tokens.length },
     { id: 'ast', label: 'AST' },
     { id: 'ir', label: 'IR', badge: compiled.unoptimized?.instructions.length ?? 0 },
-    { id: 'passes', label: 'Passes' },
+    { id: 'optimiser', label: 'Optimiser' },
     { id: 'qasm', label: 'OpenQASM 3' },
   ];
 
@@ -177,50 +178,13 @@ export function CompilerInspector({
         )}
       </TabPanel>
 
-      <TabPanel id="passes" active={active}>
-        {!optimize ? (
-          <div className="qf-empty">
-            Optimisation is off, so the IR is a one-to-one lowering of the source. Turn on
-            &ldquo;Optimise&rdquo; in the run panel to see the passes work.
-            <div style={{ marginTop: 12 }}>
-              <div className="qf-label">Available passes</div>
-              {DEFAULT_PASSES.map((pass) => (
-                <div key={pass.name} style={{ marginTop: 8 }}>
-                  <div className="qf-mono" style={{ color: 'var(--color-accent)' }}>
-                    {pass.name}
-                  </div>
-                  <div style={{ fontSize: 12.5, color: 'var(--color-text-muted)' }}>
-                    {pass.description}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        ) : compiled.report ? (
-          <>
-            <pre className="qf-pre">{formatOptimizationReport(compiled.report)}</pre>
-            <div style={{ borderTop: '1px solid var(--color-border)', padding: '10px 12px' }}>
-              <div className="qf-label">Why each rewrite is valid</div>
-              {DEFAULT_PASSES.map((pass) => (
-                <div key={pass.name} style={{ marginTop: 10 }}>
-                  <div
-                    className="qf-mono"
-                    style={{ color: 'var(--color-accent)', fontSize: 12 }}
-                  >
-                    {pass.name}
-                  </div>
-                  <div
-                    style={{ fontSize: 12.5, color: 'var(--color-text-muted)', marginTop: 2 }}
-                  >
-                    {pass.justification}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </>
-        ) : (
-          <div className="qf-empty">No pass report.</div>
-        )}
+      <TabPanel id="optimiser" active={active}>
+        <OptimisationExplorer
+          compiled={compiled}
+          optimize={optimize}
+          onEnableOptimise={onEnableOptimise}
+          onReveal={onReveal}
+        />
       </TabPanel>
 
       <TabPanel id="qasm" active={active}>

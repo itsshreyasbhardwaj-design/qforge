@@ -195,17 +195,74 @@ test('optimisation is off by default and reports its work when enabled', async (
   await page.locator('#qf-example').selectOption('optimisable');
   await openSection(page, 'Compiler');
 
-  await page.getByRole('tab', { name: 'Passes' }).click();
-  await expect(page.getByText('Optimisation is off')).toBeVisible();
-
-  await openSection(page, 'Circuit');
-  await page.getByRole('checkbox', { name: 'Optimise' }).check();
-
-  await openSection(page, 'Compiler');
-  await page.getByRole('tab', { name: 'Passes' }).click();
+  await page.getByRole('tab', { name: 'Optimiser' }).click();
   const compiler = page.getByTestId('panel-compiler');
-  await expect(compiler.getByText(/instructions 14 -> 6/)).toBeVisible();
-  await expect(compiler.getByText(/cancel-self-inverse/).first()).toBeVisible();
+  await expect(compiler.getByText('Optimisation is off')).toBeVisible();
+
+  // The explorer offers to turn it on rather than sending the user hunting
+  // for the checkbox on another panel.
+  await compiler.getByRole('button', { name: 'Turn on optimisation' }).click();
+  await page.waitForTimeout(400);
+
+  await expect(compiler.getByText(/removed,.*rewritten/)).toBeVisible();
+  await expect(compiler.getByText('cancel-self-inverse').first()).toBeVisible();
+});
+
+test('the optimisation explorer shows what each pass removed, and why', async ({ page }) => {
+  await page.locator('#qf-example').selectOption('optimisable');
+  await openSection(page, 'Compiler');
+  await page.getByRole('tab', { name: 'Optimiser' }).click();
+  const compiler = page.getByTestId('panel-compiler');
+  await compiler.getByRole('button', { name: 'Turn on optimisation' }).click();
+  await page.waitForTimeout(400);
+
+  // Before and after counts, computed rather than asserted in prose.
+  await expect(compiler.getByText('instructions', { exact: true })).toBeVisible();
+  await expect(compiler.getByText('rounds to fixpoint')).toBeVisible();
+
+  // The honest caveat about gate counts must be on screen, not buried in docs.
+  await expect(compiler.getByText(/Fewer gates is not automatically faster/)).toBeVisible();
+
+  // Each pass's mathematical justification is available on demand.
+  await compiler.getByRole('button', { name: /why each rewrite is valid/ }).click();
+  await expect(compiler.getByText(/one-parameter group/)).toBeVisible();
+  await expect(compiler.getByText(/global phase/).first()).toBeVisible();
+});
+
+test('the gate inspector explains a step from computed numbers', async ({ page }) => {
+  await openSection(page, 'Debug');
+  // Step onto the Hadamard.
+  await page.getByRole('button', { name: 'Step', exact: true }).click();
+
+  await openSection(page, 'Results');
+  await page.getByRole('tab', { name: 'Gate' }).click();
+  const results = page.getByTestId('panel-results');
+
+  await expect(results.getByText('h on alice')).toBeVisible();
+  // The 2x2 matrix is shown for a single-qubit gate.
+  await expect(results.getByText('Matrix', { exact: true })).toBeVisible();
+  await expect(results.getByText('0.7071 + 0.0000i').first()).toBeVisible();
+  // ...and the computed observation about what changed.
+  await expect(results.getByText(/basis state.*now/)).toBeVisible();
+  await expect(
+    results.getByText(/Every statement above is computed from the amplitudes/),
+  ).toBeVisible();
+});
+
+test('clicking a gate in the circuit opens its explanation', async ({ page }) => {
+  await openSection(page, 'Circuit');
+  // The CX of the Bell example.
+  await page
+    .getByTestId('panel-circuit')
+    .getByRole('button', { name: /cx on control alice, target bob/ })
+    .click();
+
+  await openSection(page, 'Results');
+  const results = page.getByTestId('panel-results');
+  await expect(results.getByText(/cx on alice, bob/)).toBeVisible();
+  // After the CX both Bell qubits are maximally mixed, computed from their
+  // reduced density matrices.
+  await expect(results.getByText(/maximally mixed/).first()).toBeVisible();
 });
 
 test('a program with errors shows diagnostics and hides the circuit', async ({ page }) => {
