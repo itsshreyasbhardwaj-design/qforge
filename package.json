@@ -24,7 +24,8 @@
     "examples": "node scripts/check-examples.mjs",
     "dev": "pnpm --filter @qforge/studio dev",
     "test:e2e": "playwright test",
-    "test:e2e:install": "playwright install chromium"
+    "test:e2e:install": "playwright install chromium",
+    "screenshots": "node scripts/screenshots.mjs"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",

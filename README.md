@@ -35,6 +35,16 @@ state     count      freq
 Only `00` and `11`. Never `01`, never `10`. That is entanglement, and QForge
 will walk you through exactly how it happens.
 
+![QForge Studio: the Bell example compiled, stepped and run](docs/screenshots/studio.png)
+
+_The studio after stepping to the end of `examples/bell.qf` and running 1024
+shots with seed 42. Left: the source with inline diagnostics. Middle: the
+circuit, the run controls, and the step debugger showing each measurement's
+exact probabilities alongside the outcome that was sampled — note that once
+`alice` has been measured as 1, `bob` reads P(1) = 100%. Right: the counts, and
+the compiler's own token stream. Every screenshot in this README is generated
+from the production build by `pnpm screenshots`._
+
 ---
 
 ## What this is
@@ -150,6 +160,12 @@ cx control, target;
 Declare it first, for example 'qubit target;'.
 ```
 
+![The compiler inspector showing the lowered IR](docs/screenshots/compiler-ir.png)
+
+_The IR view: qubits as `%0` and `%1`, classical bits as `$0`, and a source
+position on every instruction. Clicking a row moves the editor caret to the
+statement that produced it._
+
 Full detail: [compiler-design.md](docs/compiler-design.md).
 
 ## How the simulator works
@@ -192,6 +208,12 @@ What QForge adds is pedagogical:
 
 QForge **exports** OpenQASM 3 for the subset it can express, so a circuit
 developed here can be taken elsewhere.
+
+![The optimiser's pass report](docs/screenshots/optimiser.png)
+
+_The pass report for `examples/optimisable.qf`: fourteen instructions reduced to
+six across two rounds, with every removal named, and each pass stating the
+mathematical reason its rewrite is valid._
 
 ## Correctness
 
@@ -261,6 +283,14 @@ Each is executed by CI and checked against its own documentation.
 | `deutsch-jozsa-constant.qf` | The same circuit, constant oracle                             |
 | `mid-circuit-measure.qf`    | Collapse, and what `reset` really does                        |
 | `optimisable.qf`            | A circuit the optimiser shrinks, and what it refuses to touch |
+
+## The studio on a phone
+
+![The studio at phone width](docs/screenshots/mobile.png)
+
+Below 1100px the three-column workspace becomes a tabbed single column. The
+circuit diagram, the debugger and the compiler inspector all work at phone
+width; a Playwright project runs the full suite against a Pixel 7 profile.
 
 ## Running the tests
 
