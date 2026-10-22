@@ -71,10 +71,11 @@ function layout(module: IrModule): { placed: Placed[]; columns: number } {
 /** One-line human description of an instruction, for tooltips and the a11y list. */
 function describe(instruction: IrInstruction, module: IrModule): string {
   const labels = instruction.qubits.map((q) => module.qubitLabels[q] ?? `q${q}`);
+  const guard = instruction.condition ? `only when ${instruction.condition.text}: ` : '';
 
   if (instruction.opcode === Opcode.Measure) {
     const target = module.clbitLabels[instruction.clbit ?? 0] ?? `c${instruction.clbit}`;
-    return `measure ${labels[0]} into ${target}: collapses the qubit and records the outcome`;
+    return `${guard}measure ${labels[0]} into ${target}: collapses the qubit and records the outcome`;
   }
   if (instruction.opcode === Opcode.Reset) {
     return `reset ${labels[0]}: measure, discard the result, and flip back to |0>`;
@@ -95,7 +96,7 @@ function describe(instruction: IrInstruction, module: IrModule): string {
       : instruction.opcode === Opcode.Cx || instruction.opcode === Opcode.Ccx
         ? `control ${labels.slice(0, -1).join(' and ')}, target ${labels[labels.length - 1]}`
         : labels.join(' and ');
-  return `${instruction.opcode}${params} on ${operands} - ${signature?.description ?? ''}`;
+  return `${guard}${instruction.opcode}${params} on ${operands} - ${signature?.description ?? ''}`;
 }
 
 /** Short label drawn inside a gate box. */
@@ -113,8 +114,18 @@ export function CircuitDiagram({ module, highlightIndex, onSelect }: CircuitDiag
     return <div className="qf-empty">No qubits declared, so there is no circuit to draw.</div>;
   }
 
+  // A classical bus row is drawn only when something is predicated, so an
+  // ordinary circuit looks exactly as it did before.
+  const hasConditions = module.instructions.some((i) => i.condition !== undefined);
+  const classicalRowY =
+    TOP_PADDING + module.qubitCount * ROW_HEIGHT + (hasConditions ? ROW_HEIGHT / 2 : 0);
+
   const width = WIRE_LABEL_WIDTH + Math.max(columns, 1) * COLUMN_WIDTH + 24;
-  const height = TOP_PADDING + module.qubitCount * ROW_HEIGHT + BOTTOM_PADDING;
+  const height =
+    TOP_PADDING +
+    module.qubitCount * ROW_HEIGHT +
+    (hasConditions ? ROW_HEIGHT : 0) +
+    BOTTOM_PADDING;
   const wireY = (qubit: number) => TOP_PADDING + qubit * ROW_HEIGHT + ROW_HEIGHT / 2;
   const columnX = (column: number) =>
     WIRE_LABEL_WIDTH + column * COLUMN_WIDTH + COLUMN_WIDTH / 2;
@@ -162,6 +173,40 @@ export function CircuitDiagram({ module, highlightIndex, onSelect }: CircuitDiag
           </g>
         ))}
 
+        {/* The classical control bus: drawn as a double line, the usual
+            convention for a classical wire in a circuit diagram. */}
+        {hasConditions ? (
+          <g>
+            <text
+              x={WIRE_LABEL_WIDTH - 10}
+              y={classicalRowY + 4}
+              textAnchor="end"
+              fontSize={11.5}
+              fill="var(--color-warning)"
+            >
+              classical
+            </text>
+            <line
+              x1={WIRE_LABEL_WIDTH}
+              y1={classicalRowY - 1.5}
+              x2={width - 12}
+              y2={classicalRowY - 1.5}
+              stroke="var(--color-warning)"
+              strokeWidth={1}
+              opacity={0.55}
+            />
+            <line
+              x1={WIRE_LABEL_WIDTH}
+              y1={classicalRowY + 1.5}
+              x2={width - 12}
+              y2={classicalRowY + 1.5}
+              stroke="var(--color-warning)"
+              strokeWidth={1}
+              opacity={0.55}
+            />
+          </g>
+        ) : null}
+
         {/* Column ruler, so depth is readable off the drawing. */}
         {Array.from({ length: columns }, (_, column) => (
           <text
@@ -175,6 +220,42 @@ export function CircuitDiagram({ module, highlightIndex, onSelect }: CircuitDiag
             {column + 1}
           </text>
         ))}
+
+        {/* Predicate links, drawn as one layer beneath the gates. A dashed
+            line from the gate down to the classical bus, ending in a filled
+            square, makes it visually obvious which gates fire conditionally
+            and on what -- without changing how any gate itself is drawn. */}
+        {placed
+          .filter(({ instruction }) => instruction.condition !== undefined)
+          .map(({ instruction, index, column }) => {
+            const x = columnX(column);
+            const lowest = instruction.qubits.length ? Math.max(...instruction.qubits) : 0;
+            const colour =
+              index === highlightIndex ? 'var(--color-accent)' : 'var(--color-warning)';
+            return (
+              <g key={`predicate-${index}`} pointerEvents="none">
+                <line
+                  x1={x}
+                  y1={wireY(lowest)}
+                  x2={x}
+                  y2={classicalRowY}
+                  stroke={colour}
+                  strokeWidth={1.2}
+                  strokeDasharray="2 2"
+                  opacity={0.9}
+                />
+                <rect x={x - 3.5} y={classicalRowY - 3.5} width={7} height={7} fill={colour} />
+                <text
+                  x={x + 7}
+                  y={classicalRowY + 4}
+                  fontSize={8}
+                  fill="var(--color-text-faint)"
+                >
+                  {instruction.condition!.text}
+                </text>
+              </g>
+            );
+          })}
 
         {placed.map(({ instruction, index, column }) => {
           const x = columnX(column);

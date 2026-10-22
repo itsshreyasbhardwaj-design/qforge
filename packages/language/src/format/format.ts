@@ -61,6 +61,11 @@ export function formatSource(source: string, options: FormatOptions = {}): Forma
     }
   };
 
+  /** Start a line at the current indent level. */
+  const openLine = (): void => {
+    if (line.length === 0) line = indentUnit.repeat(indentLevel);
+  };
+
   const addBlankLine = (): void => {
     flush();
     if (out.length === 0) return; // no leading blank lines
@@ -75,7 +80,12 @@ export function formatSource(source: string, options: FormatOptions = {}): Forma
     TokenKind.Star,
     TokenKind.Slash,
     TokenKind.Caret,
+    TokenKind.EqualEqual,
+    TokenKind.BangEqual,
   ]);
+
+  const indentUnit = ' '.repeat(options.indent ?? 2);
+  let indentLevel = 0;
 
   /**
    * Should a space be inserted between `previous` and `next`?
@@ -99,6 +109,8 @@ export function formatSource(source: string, options: FormatOptions = {}): Forma
     ) {
       return false;
     }
+    // `if (` keeps its space, unlike a gate's parameter list.
+    if (next.kind === TokenKind.LParen && previous.kind === TokenKind.If) return true;
     // Never a space after these.
     if (previous.kind === TokenKind.LParen || previous.kind === TokenKind.LBracket)
       return false;
@@ -162,13 +174,33 @@ export function formatSource(source: string, options: FormatOptions = {}): Forma
 
     // A space is only ever inserted *between* tokens, never at the start of a
     // line: `line` being empty means this token begins a fresh line.
-    if (line.length > 0 && needsSpace(previous, previousIndex, token)) line += ' ';
+    // A closing brace dedents before it is written, so it lines up with `if`.
+    if (token.kind === TokenKind.RBrace) {
+      flush();
+      indentLevel = Math.max(0, indentLevel - 1);
+    }
+
+    openLine();
+    if (
+      line.length > indentUnit.repeat(indentLevel).length &&
+      needsSpace(previous, previousIndex, token)
+    )
+      line += ' ';
     line += token.text;
     previous = token;
     previousIndex = index;
     previousLine = token.span.endLine;
 
-    if (token.kind === TokenKind.Semicolon) flush();
+    if (token.kind === TokenKind.LBrace) {
+      flush();
+      indentLevel++;
+    } else if (token.kind === TokenKind.RBrace) {
+      flush();
+    } else if (token.kind === TokenKind.Semicolon) {
+      // A single-statement `if` body keeps the whole statement on one line,
+      // so only dedent for the brace form.
+      flush();
+    }
   }
 
   flush();

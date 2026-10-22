@@ -1,4 +1,4 @@
-import { Opcode, type IrInstruction, type IrModule } from '@qforge/compiler';
+import { Opcode, conditionHolds, type IrInstruction, type IrModule } from '@qforge/compiler';
 import { HARD_MAX_QUBITS, MAX_SHOTS, statevectorBytes } from '@qforge/language';
 import { singleQubitMatrix } from './gates/matrices.js';
 import { Statevector } from './statevector/statevector.js';
@@ -62,6 +62,8 @@ export interface ExecutionResult {
  *
  * Replay is required when the circuit's later evolution depends on a sampled
  * outcome:
+ *   - any classically predicated instruction, which is the whole point of
+ *     classical control;
  *   - any `reset`, which is a measurement in disguise, or
  *   - any gate acting on a qubit that has already been measured.
  *
@@ -72,6 +74,9 @@ export interface ExecutionResult {
 export function requiresPerShotReplay(module: IrModule): boolean {
   const measured = new Set<number>();
   for (const instruction of module.instructions) {
+    // A predicated instruction branches on a sampled outcome, so the circuit's
+    // evolution differs from shot to shot by construction.
+    if (instruction.condition !== undefined) return true;
     if (instruction.opcode === Opcode.Reset) return true;
     if (instruction.opcode === Opcode.Measure) {
       const q = instruction.qubits[0];
@@ -179,6 +184,11 @@ export function executeCircuit(
       const register: ClassicalRegister = new Uint8Array(module.clbitCount);
 
       for (const instruction of module.instructions) {
+        // A predicate that does not hold skips the instruction entirely: no
+        // state change, and for a measurement no classical write either.
+        if (instruction.condition && !conditionHolds(instruction.condition, register)) {
+          continue;
+        }
         if (instruction.opcode === Opcode.Measure) {
           const outcome = measureQubit(state, instruction.qubits[0]!, rng);
           if (instruction.clbit !== undefined) register[instruction.clbit] = outcome.outcome;

@@ -8,12 +8,14 @@ import {
 } from '../diagnostics/diagnostic.js';
 import type {
   BarrierStatement,
+  ConditionExpr,
   Expression,
   GateApplication,
   MeasureStatement,
   OperandRef,
   Program,
   ResetStatement,
+  Statement,
 } from '../ast/nodes.js';
 import { SymbolTable, type SymbolEntry } from './symbols.js';
 import { evaluateConstExpression, evaluateIntExpression } from './constants.js';
@@ -32,6 +34,24 @@ export interface ResolvedOperand {
 }
 
 /**
+ * A resolved `if` condition.
+ *
+ * The classical bits are listed least-significant first, matching the global
+ * bit-order convention: for `bit[2] c`, `c == 2` tests `c[1] == 1, c[0] == 0`.
+ */
+export interface ResolvedCondition {
+  /** Global classical-bit indices, least significant first. */
+  readonly clbits: readonly number[];
+  /** Integer the register value is compared against. */
+  readonly value: number;
+  /** True for `!=`. */
+  readonly negate: boolean;
+  /** Display form, e.g. `c == 1`, used by the debugger and diagrams. */
+  readonly text: string;
+  readonly span: SourceSpan;
+}
+
+/**
  * The validated, name-resolved form of one executable statement.
  *
  * Declarations do not appear here: they are folded into the symbol table and
@@ -46,18 +66,27 @@ export type ResolvedOperation =
       /** Angle parameters, already folded to doubles. */
       readonly params: readonly number[];
       readonly node: GateApplication;
+      /** Present when the statement sits inside an `if`. */
+      readonly condition?: ResolvedCondition;
     }
   | {
       readonly kind: 'measure';
       readonly qubit: ResolvedOperand;
       readonly clbit: ResolvedOperand;
       readonly node: MeasureStatement;
+      readonly condition?: ResolvedCondition;
     }
-  | { readonly kind: 'reset'; readonly qubit: ResolvedOperand; readonly node: ResetStatement }
+  | {
+      readonly kind: 'reset';
+      readonly qubit: ResolvedOperand;
+      readonly node: ResetStatement;
+      readonly condition?: ResolvedCondition;
+    }
   | {
       readonly kind: 'barrier';
       readonly qubits: readonly ResolvedOperand[];
       readonly node: BarrierStatement;
+      readonly condition?: ResolvedCondition;
     };
 
 export interface SemanticModel {
@@ -265,18 +294,123 @@ export function analyze(program: Program, options: AnalyzeOptions = {}): Semanti
   // follow its declaration. That keeps the reading order of a circuit the same
   // as its execution order, and it is why declarations and operations are
   // handled in a single pass rather than two.
-  for (const statement of program.statements) {
-    if (operations.length >= limits.maxInstructions) {
+  /**
+   * Resolve the target of an `if` condition.
+   *
+   * Unlike a gate operand, a bare register name *is* allowed here: `c == 3`
+   * compares the whole register's integer value, which is the OpenQASM idiom
+   * and the reason the condition grammar admits a register at all.
+   */
+  const resolveCondition = (expr: ConditionExpr): ResolvedCondition | undefined => {
+    const ref = expr.target;
+    const entry = symbols.lookup(ref.name);
+
+    if (!entry) {
+      const suggestion = suggestFrom(
+        ref.name,
+        symbols.ofKind('bit').map((e) => e.name),
+      );
       report(
         error(
-          ErrorCode.TooManyInstructions,
-          `Program exceeds the limit of ${limits.maxInstructions} operations`,
-          statement.span,
+          ErrorCode.UnknownIdentifier,
+          `Unknown classical bit '${ref.name}'`,
+          ref.nameSpan,
+          suggestion
+            ? `Did you mean '${suggestion}'?`
+            : `Declare it first with 'bit ${ref.name};'.`,
         ),
       );
-      break;
+      return undefined;
     }
 
+    if (entry.kind !== 'bit') {
+      report(
+        error(
+          ErrorCode.ConditionNotClassical,
+          `'${ref.name}' is a ${entry.kind}; a condition can only test a classical bit`,
+          ref.nameSpan,
+          'Measure the qubit into a bit first, then test that bit.',
+        ),
+      );
+      return undefined;
+    }
+
+    const base = entry.baseIndex ?? 0;
+    const size = entry.size ?? 1;
+
+    let clbits: number[];
+    let indexLabel = ref.name;
+    if (ref.index) {
+      if (!entry.isRegister) {
+        report(
+          error(
+            ErrorCode.CannotIndexScalar,
+            `'${ref.name}' is a single bit and cannot be indexed`,
+            ref.span,
+          ),
+        );
+        return undefined;
+      }
+      const index = evaluateIntExpression(ref.index, symbols.constScope(), 'An index');
+      if (!index.ok) {
+        report(index.diagnostic);
+        return undefined;
+      }
+      if (index.value >= size) {
+        report(
+          error(
+            ErrorCode.IndexOutOfRange,
+            `Index ${index.value} is out of range for '${ref.name}', which has ${size} elements (0..${size - 1})`,
+            ref.index.span,
+          ),
+        );
+        return undefined;
+      }
+      clbits = [base + index.value];
+      indexLabel = `${ref.name}[${index.value}]`;
+    } else {
+      clbits = Array.from({ length: size }, (_, i) => base + i);
+    }
+
+    const value = evaluateIntExpression(expr.value, symbols.constScope(), 'A condition value');
+    if (!value.ok) {
+      report(value.diagnostic);
+      return undefined;
+    }
+
+    const maximum = 2 ** clbits.length - 1;
+    if (value.value > maximum) {
+      report(
+        error(
+          ErrorCode.ConditionValueOutOfRange,
+          `Condition compares ${clbits.length} bit${clbits.length === 1 ? '' : 's'} against ${value.value}, which needs more bits (maximum is ${maximum})`,
+          expr.value.span,
+          clbits.length === 1
+            ? 'A single bit can only be 0 or 1.'
+            : `Use a value in 0..${maximum}, or test more bits.`,
+        ),
+      );
+      return undefined;
+    }
+
+    return {
+      clbits,
+      value: value.value,
+      negate: expr.operator === '!=',
+      text: `${indexLabel} ${expr.operator} ${value.value}`,
+      span: expr.span,
+    };
+  };
+
+  /**
+   * Handle one statement, optionally under an active condition.
+   *
+   * Conditions are attached to the operations they guard rather than producing
+   * a nested structure, which keeps the downstream IR a flat list. See
+   * docs/classical-control-design.md.
+   */
+  const handleStatement = (statement: Statement, condition?: ResolvedCondition): void => {
+    const guard = condition ? { condition } : {};
     switch (statement.kind) {
       case 'ConstDeclaration': {
         const existing = symbols.lookup(statement.name);
@@ -458,7 +592,14 @@ export function analyze(program: Program, options: AnalyzeOptions = {}): Semanti
         }
 
         if (valid) {
-          operations.push({ kind: 'gate', gate: signature, qubits, params, node: statement });
+          operations.push({
+            kind: 'gate',
+            gate: signature,
+            qubits,
+            params,
+            node: statement,
+            ...guard,
+          });
         }
         break;
       }
@@ -467,14 +608,14 @@ export function analyze(program: Program, options: AnalyzeOptions = {}): Semanti
         const qubit = resolveOperand(statement.qubit, 'qubit');
         const clbit = resolveOperand(statement.target, 'bit');
         if (qubit && clbit) {
-          operations.push({ kind: 'measure', qubit, clbit, node: statement });
+          operations.push({ kind: 'measure', qubit, clbit, node: statement, ...guard });
         }
         break;
       }
 
       case 'ResetStatement': {
         const qubit = resolveOperand(statement.qubit, 'qubit');
-        if (qubit) operations.push({ kind: 'reset', qubit, node: statement });
+        if (qubit) operations.push({ kind: 'reset', qubit, node: statement, ...guard });
         break;
       }
 
@@ -489,10 +630,72 @@ export function analyze(program: Program, options: AnalyzeOptions = {}): Semanti
           }
           qubits.push(resolved);
         }
-        if (valid) operations.push({ kind: 'barrier', qubits, node: statement });
+        if (valid) operations.push({ kind: 'barrier', qubits, node: statement, ...guard });
+        break;
+      }
+
+      case 'IfStatement': {
+        if (condition) {
+          report(
+            error(
+              ErrorCode.NestedConditional,
+              'Conditionals cannot be nested',
+              statement.span,
+              'Combine the tests into one condition, or measure into a wider register and compare that.',
+            ),
+          );
+          break;
+        }
+        const resolved = resolveCondition(statement.condition);
+        if (!resolved) break;
+
+        if (statement.body.length === 0) {
+          report(
+            error(
+              ErrorCode.EmptyConditionalBody,
+              'Conditional body is empty',
+              statement.span,
+              'Remove the if, or put an operation inside it.',
+            ),
+          );
+          break;
+        }
+
+        for (const inner of statement.body) {
+          if (
+            inner.kind === 'QubitDeclaration' ||
+            inner.kind === 'BitDeclaration' ||
+            inner.kind === 'ConstDeclaration'
+          ) {
+            report(
+              error(
+                ErrorCode.UnsupportedFeature,
+                `A ${inner.kind === 'ConstDeclaration' ? 'constant' : 'qubit or bit'} cannot be declared inside a conditional`,
+                inner.span,
+                'Declarations are program-wide; move it above the if.',
+              ),
+            );
+            continue;
+          }
+          handleStatement(inner, resolved);
+        }
         break;
       }
     }
+  };
+
+  for (const statement of program.statements) {
+    if (operations.length >= limits.maxInstructions) {
+      report(
+        error(
+          ErrorCode.TooManyInstructions,
+          `Program exceeds the limit of ${limits.maxInstructions} operations`,
+          statement.span,
+        ),
+      );
+      break;
+    }
+    handleStatement(statement);
   }
 
   const sorted = sortDiagnostics(diagnostics);

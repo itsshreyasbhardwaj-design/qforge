@@ -1,7 +1,13 @@
 'use client';
 
 import { useMemo } from 'react';
-import { circuitDepth, gateCount, opcodeHistogram, type IrModule } from '@qforge/compiler';
+import {
+  circuitDepth,
+  gateCount,
+  hasClassicalControl,
+  opcodeHistogram,
+  type IrModule,
+} from '@qforge/compiler';
 import type { ExecutionResult } from '@qforge/simulator';
 import { percent } from '../lib/format';
 
@@ -120,7 +126,16 @@ export function CircuitStats({ module, optimizedFrom }: CircuitStatsProps) {
           circuitDepth(module),
           optimizedFrom ? circuitDepth(optimizedFrom) : undefined,
         )}
+        {stat('classical control', hasClassicalControl(module) ? 'yes' : 'no')}
       </div>
+
+      {hasClassicalControl(module) ? (
+        <div style={{ fontSize: 11.5, color: 'var(--color-text-faint)', lineHeight: 1.5 }}>
+          This circuit has predicated instructions, so every shot is replayed individually
+          rather than sampled from one final statevector &mdash; the branch taken depends on
+          what was measured.
+        </div>
+      ) : null}
 
       <div>
         <div className="qf-label">Opcode counts</div>

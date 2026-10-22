@@ -126,6 +126,40 @@ export interface ResetStatement extends NodeBase {
   readonly qubit: OperandRef;
 }
 
+/**
+ * The condition of an `if`: an equality test between a classical bit (or a
+ * whole classical register) and an integer literal.
+ *
+ * Deliberately not a general boolean expression. QForge's conditionals exist to
+ * express measurement feed-forward -- the thing teleportation needs -- and
+ * every construct admitted here has to have defined semantics in the simulator,
+ * in the optimiser's safety analysis, and in the OpenQASM backend. An equality
+ * test against a constant is the smallest form that does the job.
+ */
+export interface ConditionExpr extends NodeBase {
+  readonly kind: 'ConditionExpr';
+  /** The classical bit or register being tested. */
+  readonly target: OperandRef;
+  readonly operator: '==' | '!=';
+  /** Right-hand side; must fold to a non-negative integer. */
+  readonly value: Expression;
+}
+
+/**
+ * `if (c == 1) x q;` or `if (c == 1) { x q; z q; }`
+ *
+ * The body holds quantum operations only. There is no `else`, so the grammar
+ * has no dangling-else ambiguity, and conditionals do not nest -- see
+ * docs/classical-control-design.md for why both restrictions are deliberate.
+ */
+export interface IfStatement extends NodeBase {
+  readonly kind: 'IfStatement';
+  readonly condition: ConditionExpr;
+  readonly body: readonly Statement[];
+  /** True when the body was written as a `{ ... }` block. */
+  readonly braced: boolean;
+}
+
 /** `barrier;` or `barrier a, b;` — an optimisation fence. */
 export interface BarrierStatement extends NodeBase {
   readonly kind: 'BarrierStatement';
@@ -140,14 +174,15 @@ export type Statement =
   | GateApplication
   | MeasureStatement
   | ResetStatement
-  | BarrierStatement;
+  | BarrierStatement
+  | IfStatement;
 
 export interface Program extends NodeBase {
   readonly kind: 'Program';
   readonly statements: readonly Statement[];
 }
 
-export type AstNode = Program | Statement | Expression | OperandRef;
+export type AstNode = Program | Statement | Expression | OperandRef | ConditionExpr;
 
 // --------------------------------------------------------------------------
 // Traversal
@@ -171,6 +206,10 @@ export function childrenOf(node: AstNode): AstNode[] {
       return [node.qubit];
     case 'BarrierStatement':
       return [...node.qubits];
+    case 'IfStatement':
+      return [node.condition, ...node.body];
+    case 'ConditionExpr':
+      return [node.target, node.value];
     case 'OperandRef':
       return node.index ? [node.index] : [];
     case 'UnaryExpr':

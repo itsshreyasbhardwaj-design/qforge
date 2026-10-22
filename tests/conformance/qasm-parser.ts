@@ -33,6 +33,13 @@ export interface QasmRegister {
   readonly indexed: boolean;
 }
 
+export interface QasmCondition {
+  /** Global classical-bit indices, least significant first. */
+  readonly clbits: readonly number[];
+  readonly value: number;
+  readonly negate: boolean;
+}
+
 export interface QasmOperation {
   readonly gate: string;
   readonly params: readonly number[];
@@ -40,6 +47,8 @@ export interface QasmOperation {
   readonly qubits: readonly number[];
   /** Destination classical bit, for `measure` only. */
   readonly clbit?: number;
+  /** Present when the statement was wrapped in `if (...) { ... }`. */
+  readonly condition?: QasmCondition;
 }
 
 export interface QasmCircuit {
@@ -145,16 +154,43 @@ export function evaluateQasmExpression(text: string): number {
   return stack[0]!;
 }
 
-/** Strip `//` comments and split into non-empty statements on `;`. */
+/**
+ * Strip `//` comments and split into statements on `;`, but only at brace
+ * depth zero so that `if (c == 1) { x q; }` stays one statement.
+ *
+ * A character scan rather than a regex split, because the brace nesting cannot
+ * be expressed in one. It is still a deliberately different technique from the
+ * QForge frontend's hand-written token stream.
+ */
 function statementsOf(source: string): string[] {
   const withoutComments = source
     .split('\n')
     .map((line) => line.replace(/\/\/.*$/, ''))
     .join('\n');
-  return withoutComments
-    .split(';')
-    .map((s) => s.trim().replace(/\s+/g, ' '))
-    .filter((s) => s.length > 0);
+
+  const statements: string[] = [];
+  let current = '';
+  let depth = 0;
+  for (const ch of withoutComments) {
+    if (ch === '{') depth++;
+    if (ch === '}') depth--;
+    if (ch === ';' && depth === 0) {
+      statements.push(current);
+      current = '';
+      continue;
+    }
+    current += ch;
+    // A `}` that closes back to depth 0 ends the statement on its own: an
+    // `if` block carries no trailing semicolon, so two consecutive ones would
+    // otherwise run together into a single unparseable blob.
+    if (ch === '}' && depth === 0) {
+      statements.push(current);
+      current = '';
+    }
+  }
+  statements.push(current);
+
+  return statements.map((s) => s.trim().replace(/\s+/g, ' ')).filter((s) => s.length > 0);
 }
 
 export function parseQasm3(source: string): QasmCircuit {
@@ -201,15 +237,19 @@ export function parseQasm3(source: string): QasmCircuit {
   };
 
   for (const statement of statements) {
+    parseOne(statement);
+  }
+
+  function parseOne(statement: string): void {
     let match: RegExpExecArray | null;
 
     if ((match = /^OPENQASM\s+([\d.]+)$/.exec(statement))) {
       version = match[1]!;
-      continue;
+      return;
     }
     if ((match = /^include\s+"([^"]+)"$/.exec(statement))) {
       includes.push(match[1]!);
-      continue;
+      return;
     }
     if ((match = /^(qubit|bit)\s*(?:\[\s*(\d+)\s*\])?\s+([A-Za-z_]\w*)$/.exec(statement))) {
       const kind = match[1]!;
@@ -226,8 +266,44 @@ export function parseQasm3(source: string): QasmCircuit {
         clbitBase.set(name, { ...register, base: clbitCount });
         clbitCount += size;
       }
-      continue;
+      return;
     }
+    // `if (cond) { body }` -- the body is one statement, handled by recursing
+    // into `parseOne` and then stamping the condition onto whatever it
+    // produced. QForge predicates individual instructions, so a body is always
+    // exactly one operation, but the loop costs nothing and is honest about it.
+    if ((match = /^if\s*\((.+?)\)\s*\{\s*(.*?)\s*;?\s*\}$/.exec(statement))) {
+      const conditionText = match[1]!.trim();
+      const body = match[2]!.trim();
+      const parts = /^([A-Za-z_]\w*(?:\s*\[\s*\d+\s*\])?)\s*(==|!=)\s*(\d+)$/.exec(
+        conditionText,
+      );
+      if (!parts) throw new QasmParseError(`Cannot parse condition '${conditionText}'`);
+
+      const targetText = parts[1]!.trim();
+      let clbits: number[];
+      if (/\[/.test(targetText)) {
+        clbits = [resolve(targetText, clbitBase, 'bit')];
+      } else {
+        const register = clbitBase.get(targetText);
+        if (!register) throw new QasmParseError(`Undeclared bit '${targetText}'`);
+        clbits = Array.from({ length: register.size }, (_, i) => register.base + i);
+      }
+
+      const condition: QasmCondition = {
+        clbits,
+        value: Number(parts[3]),
+        negate: parts[2] === '!=',
+      };
+
+      const before = operations.length;
+      parseOne(body);
+      for (let i = before; i < operations.length; i++) {
+        operations[i] = { ...operations[i]!, condition };
+      }
+      return;
+    }
+
     if (
       (match = /^([A-Za-z_]\w*(?:\s*\[\s*\d+\s*\])?)\s*=\s*measure\s+(.+)$/.exec(statement))
     ) {
@@ -237,7 +313,7 @@ export function parseQasm3(source: string): QasmCircuit {
         qubits: [resolve(match[2]!.trim(), qubitBase, 'qubit')],
         clbit: resolve(match[1]!.trim(), clbitBase, 'bit'),
       });
-      continue;
+      return;
     }
     if ((match = /^reset\s+(.+)$/.exec(statement))) {
       operations.push({
@@ -245,7 +321,7 @@ export function parseQasm3(source: string): QasmCircuit {
         params: [],
         qubits: [resolve(match[1]!.trim(), qubitBase, 'qubit')],
       });
-      continue;
+      return;
     }
     if ((match = /^barrier\s*(.*)$/.exec(statement))) {
       const operands = match[1]!.trim();
@@ -256,7 +332,7 @@ export function parseQasm3(source: string): QasmCircuit {
           ? operands.split(',').map((o) => resolve(o.trim(), qubitBase, 'qubit'))
           : [],
       });
-      continue;
+      return;
     }
     if ((match = /^([A-Za-z_]\w*)\s*(?:\(([^)]*)\))?\s+(.+)$/.exec(statement))) {
       const gate = match[1]!;
@@ -266,7 +342,7 @@ export function parseQasm3(source: string): QasmCircuit {
         : [];
       const qubits = match[3]!.split(',').map((o) => resolve(o.trim(), qubitBase, 'qubit'));
       operations.push({ gate, params, qubits });
-      continue;
+      return;
     }
 
     throw new QasmParseError(`Unsupported statement: '${statement}'`);

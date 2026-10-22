@@ -202,10 +202,20 @@ export function tokenize(source: string): LexResult {
       continue;
     }
 
-    // --- two-character operator ---
+    // --- two-character operators, matched before their one-character prefixes ---
     if (c === '-' && at(1) === '>') {
       advance(2);
       push(TokenKind.Arrow, start, startLine, startCol);
+      continue;
+    }
+    if (c === '=' && at(1) === '=') {
+      advance(2);
+      push(TokenKind.EqualEqual, start, startLine, startCol);
+      continue;
+    }
+    if (c === '!' && at(1) === '=') {
+      advance(2);
+      push(TokenKind.BangEqual, start, startLine, startCol);
       continue;
     }
 
@@ -217,6 +227,8 @@ export function tokenize(source: string): LexResult {
       ')': TokenKind.RParen,
       '[': TokenKind.LBracket,
       ']': TokenKind.RBracket,
+      '{': TokenKind.LBrace,
+      '}': TokenKind.RBrace,
       '+': TokenKind.Plus,
       '-': TokenKind.Minus,
       '*': TokenKind.Star,

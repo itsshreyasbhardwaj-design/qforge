@@ -1,4 +1,4 @@
-import { touchedQubits, type IrInstruction } from '../ir/ir.js';
+import { touchedResources, type IrInstruction } from '../ir/ir.js';
 
 export interface AdjacentPair {
   /** Index of the earlier instruction. */
@@ -26,6 +26,12 @@ export interface AdjacentPair {
  * and `measure`/`reset` block because their opcodes never match a gate's, so
  * no rewrite can cross them.
  *
+ * `S` is a set of *resources*, not just qubits: it includes the classical bits
+ * a predicate reads and the bit a measurement writes. Without that, a
+ * measurement sitting between two identically predicated gates would be
+ * invisible to this scan, and the gates would be wrongly cancelled even though
+ * the measurement can change whether each one fires.
+ *
  * The verdict a pass returns tells the walker how to keep bookkeeping correct
  * so that *runs* of more than two gates resolve in a single scan:
  *
@@ -49,7 +55,7 @@ export function scanAdjacentPairs(
 
   for (let i = 0; i < instructions.length; i++) {
     const instruction = instructions[i]!;
-    const touched = touchedQubits(instruction, qubitCount);
+    const touched = touchedResources(instruction, qubitCount);
     if (touched.length === 0) continue;
 
     const firstCandidate = lastOn[touched[0]!]!;
@@ -58,7 +64,7 @@ export function scanAdjacentPairs(
 
     if (sharedPredecessor) {
       const previous = instructions[firstCandidate]!;
-      const previousTouched = touchedQubits(previous, qubitCount);
+      const previousTouched = touchedResources(previous, qubitCount);
       const sameSet =
         previousTouched.length === touched.length &&
         previousTouched.every((q) => touched.includes(q));

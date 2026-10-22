@@ -333,6 +333,88 @@ test('Bloch panel reports both Bell qubits as maximally mixed', async ({ page })
   await expect(results(page).getByText('maximally mixed (entangled)').first()).toBeVisible();
 });
 
+test('teleportation renders a classical control bus', async ({ page }) => {
+  await page.locator('#qf-example').selectOption('teleportation');
+  await openSection(page, 'Circuit');
+
+  const diagram = page.getByRole('img', { name: /Circuit with 3 qubits/ });
+  await expect(diagram).toBeVisible();
+  // The classical wire only appears when something is predicated.
+  await expect(
+    page.getByTestId('panel-circuit').getByText('classical', { exact: true }),
+  ).toBeVisible();
+  // Each correction carries a visible label naming the predicate. `exact`
+  // matters: the predicate also appears in the SVG's accessible description
+  // and in each gate's tooltip, which is correct but matches loosely.
+  await expect(
+    page.getByTestId('panel-circuit').getByText('m1 == 1', { exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByTestId('panel-circuit').getByText('m0 == 1', { exact: true }),
+  ).toBeVisible();
+
+  // ...and the accessible description names the predicate too, so a screen
+  // reader is told which gates are conditional.
+  await expect(diagram).toHaveAttribute('aria-label', /3 qubits/);
+  const description = await page
+    .getByTestId('panel-circuit')
+    .locator('desc')
+    .first()
+    .textContent();
+  expect(description).toContain('only when m1 == 1');
+});
+
+test('the debugger says whether each correction fired', async ({ page }) => {
+  await page.locator('#qf-example').selectOption('teleportation');
+  await openSection(page, 'Debug');
+  await page.getByRole('button', { name: 'To end' }).click();
+
+  const debuggerPanel = page.getByTestId('panel-debugger');
+  await expect(debuggerPanel.getByText('if m1 == 1')).toBeVisible();
+  await expect(debuggerPanel.getByText('if m0 == 1')).toBeVisible();
+  // Exactly one of the two outcomes is shown for each correction, spelled out
+  // rather than only colour-coded.
+  const ran = await debuggerPanel.getByText('held, so it ran').count();
+  const skipped = await debuggerPanel.getByText('did not hold, so it was skipped').count();
+  expect(ran + skipped).toBe(2);
+});
+
+test('teleportation delivers the input state to Bob', async ({ page }) => {
+  await page.locator('#qf-example').selectOption('teleportation');
+  await openSection(page, 'Debug');
+  await page.getByRole('button', { name: 'To end' }).click();
+
+  await openSection(page, 'Results');
+  await page.getByRole('tab', { name: 'Bloch' }).click();
+
+  // The example prepares ry(2*pi/5) on msg, so Bob must end with
+  // z = cos(2*pi/5) = 0.3090 and a pure state of his own.
+  const bobRow = page.getByTestId('panel-results').getByRole('row').filter({ hasText: 'bob' });
+  await expect(bobRow).toContainText('pure');
+  await expect(bobRow).toContainText('0.3090');
+});
+
+test('a predicated circuit reports that it replays per shot', async ({ page }) => {
+  await page.locator('#qf-example').selectOption('teleportation');
+  await openSection(page, 'Results');
+  await page.getByRole('button', { name: 'Run', exact: true }).click();
+  await openSection(page, 'Results');
+  await page.getByRole('tab', { name: 'Stats' }).click();
+  await expect(
+    page.getByTestId('panel-results').getByText('every shot is replayed'),
+  ).toBeVisible();
+});
+
+test('generated OpenQASM contains the conditional corrections', async ({ page }) => {
+  await page.locator('#qf-example').selectOption('teleportation');
+  await openSection(page, 'Compiler');
+  await page.getByRole('tab', { name: 'OpenQASM 3' }).click();
+
+  const compiler = page.getByTestId('panel-compiler');
+  await expect(compiler.getByText('if (m1 == 1) { x bob; }')).toBeVisible();
+  await expect(compiler.getByText('if (m0 == 1) { z bob; }')).toBeVisible();
+});
+
 test('no console errors on load or after a run', async ({ page }) => {
   const errors: string[] = [];
   page.on('console', (message) => {

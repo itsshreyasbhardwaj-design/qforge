@@ -1,5 +1,11 @@
 import { GATES } from '@qforge/language';
-import { Opcode, resolveRegister, type IrModule, type IrRegister } from '../ir/ir.js';
+import {
+  Opcode,
+  resolveRegister,
+  type IrCondition,
+  type IrModule,
+  type IrRegister,
+} from '../ir/ir.js';
 import { formatAngle } from './angle.js';
 
 /**
@@ -7,10 +13,11 @@ import { formatAngle } from './angle.js';
  *
  * Scope, stated plainly: this backend emits the *subset of OpenQASM 3 that
  * QForge programs can express* — qubit and bit declarations, the seventeen
- * gates of `stdgates.inc` that QForge exposes, `measure`, `reset` and
- * `barrier`. It is not an OpenQASM 3 implementation: there is no support for
- * classical control flow, `gate` definitions, `def` subroutines, timing, pulse
- * level constructs, aliasing, or the classical type system. See
+ * gates of `stdgates.inc` that QForge exposes, `measure`, `reset`, `barrier`,
+ * and single-branch `if` statements comparing a classical bit or register
+ * against an integer. It is not an OpenQASM 3 implementation: there is no
+ * `else`, no loops, no `gate` definitions, no `def` subroutines, no timing, no
+ * pulse level constructs, no aliasing and no classical type system. See
  * docs/limitations.md for the full list.
  *
  * Output is deterministic: the same module always produces byte-identical
@@ -187,6 +194,28 @@ export function emitOpenQasm3(module: IrModule, options: EmitQasmOptions = {}): 
   }
   if (module.qubitRegisters.length || module.clbitRegisters.length) lines.push('');
 
+  /**
+   * Render a predicate as an OpenQASM condition.
+   *
+   * A predicate over a register's full width prints as the register name; a
+   * predicate over a single element prints as the indexed bit. Those are the
+   * only two shapes the frontend can produce, so there is no general case.
+   */
+  const conditionText = (condition: IrCondition): string => {
+    const first = condition.clbits[0]!;
+    const found = resolveRegister(module.clbitRegisters, first);
+    if (!found) {
+      throw new Error(`Internal error: condition bit ${first} belongs to no declared register`);
+    }
+    const { register: reg } = found;
+    const name = nameOf(reg);
+    const whole =
+      condition.clbits.length === reg.size &&
+      condition.clbits.every((c, i) => c === reg.baseIndex + i);
+    const target = whole && reg.isRegister ? name : clbit(first);
+    return `${target} ${condition.negate ? '!=' : '=='} ${condition.value}`;
+  };
+
   for (const instruction of module.instructions) {
     let text: string;
 
@@ -223,6 +252,11 @@ export function emitOpenQasm3(module: IrModule, options: EmitQasmOptions = {}): 
       }
     }
 
+    // OpenQASM 3 wraps a conditional body in braces. QForge predicates single
+    // instructions, so each one becomes its own single-statement `if`.
+    if (instruction.condition) {
+      text = `if (${conditionText(instruction.condition)}) { ${text} }`;
+    }
     lines.push(sourceComments ? `${text}  // line ${instruction.loc.line}` : text);
   }
 

@@ -55,7 +55,7 @@ QForge is **case sensitive**: `qubit` is a keyword, `Qubit` is an identifier.
 Reserved words, which may not be used as names:
 
 ```
-qubit   bit   const   measure   reset   barrier
+qubit   bit   const   measure   reset   barrier   if
 ```
 
 Gate mnemonics (`h`, `cx`, …) are **not** reserved. A qubit may be named `h`;
@@ -80,8 +80,11 @@ characters is an error (`QF003`): `2pi` is not an implicit product, write
 ### 2.4 Operators and punctuation
 
 ```
-;   ,   (   )   [   ]   ->   +   -   *   /   ^   =
+;   ,   (   )   [   ]   {   }   ->   ==   !=   +   -   *   /   ^   =
 ```
+
+`==` and `!=` are matched before `=` and `!`, so `c == 1` is one comparison
+rather than two tokens.
 
 Any other character is an error (`QF001`). The lexer emits an `invalid` token
 for it and continues, so one stray symbol does not hide the rest of the file.
@@ -102,6 +105,7 @@ statement   ::= qubit-decl
               | measure-stmt
               | reset-stmt
               | barrier-stmt
+              | if-stmt
 
 qubit-decl  ::= 'qubit' ('[' expression ']')? identifier ';'
 bit-decl    ::= 'bit'   ('[' expression ']')? identifier ';'
@@ -111,6 +115,10 @@ gate-apply  ::= identifier ('(' expression-list? ')')? operand-list ';'
 measure-stmt::= 'measure' operand '->' operand ';'
 reset-stmt  ::= 'reset' operand ';'
 barrier-stmt::= 'barrier' operand-list? ';'
+
+if-stmt     ::= 'if' '(' condition ')' ( statement | block )
+block       ::= '{' statement* '}'
+condition   ::= operand ( '==' | '!=' ) expression
 
 operand-list    ::= operand (',' operand)*
 expression-list ::= expression (',' expression)*
@@ -296,6 +304,69 @@ covers a qubit they share. A bare `barrier;` covers every qubit.
 
 ---
 
+## 7a. Classical control
+
+```qforge
+if (m1 == 1) x bob;
+if (m0 == 1) { z bob; h bob; }
+```
+
+A conditional guards one or more quantum operations on the value of a classical
+bit or register. This is the construct quantum teleportation needs: Bob's
+correction depends on what Alice actually measured, so it cannot be written as a
+fixed gate sequence.
+
+### 7a.1 Conditions
+
+A condition is an equality or inequality test between a classical target and a
+compile-time integer. It is deliberately _not_ a general boolean expression:
+every form admitted here has to have defined semantics in the simulator, in the
+optimiser's safety analysis and in the OpenQASM backend, and equality against a
+constant is the smallest form that expresses feed-forward.
+
+| Target                   | Compared against | Example          |
+| ------------------------ | ---------------- | ---------------- |
+| a scalar bit             | 0 or 1           | `if (c == 1)`    |
+| an element of a register | 0 or 1           | `if (c[0] != 0)` |
+| a whole register         | 0 .. 2^n - 1     | `if (c == 3)`    |
+
+A whole-register comparison reads the register as an integer with **bit 0 as
+the least significant**, consistent with the convention everywhere else. For
+`bit[2] c`, `c == 2` means `c[1] == 1` and `c[0] == 0`.
+
+Note that a bare register name _is_ allowed as a condition target, unlike as a
+gate operand: comparing a whole register is the point of the form. A value that
+needs more bits than the target has is `QF219`.
+
+### 7a.2 Body
+
+The body is either a single statement or a braced block. Both forms exist
+because the single-statement form is what a correction actually looks like, and
+the block form matches OpenQASM 3. There is no `else`, so the grammar has no
+dangling-else ambiguity.
+
+The body may contain gate applications, `measure`, `reset` and `barrier`. It may
+**not** contain declarations (`QF216`) — declarations are program-wide — and it
+may **not** contain another `if` (`QF220`). An empty body is `QF221`.
+
+### 7a.3 Execution semantics
+
+The predicate is evaluated against the classical register _at the moment the
+instruction is reached_, using the values written by measurements executed so
+far in that shot. If it holds, the instruction executes exactly as it would
+unconditionally. If it does not, the instruction is skipped entirely: no state
+change, and for a conditional `measure` no classical write either.
+
+Because the predicate depends on sampled outcomes, any circuit containing one is
+executed with **per-shot replay** rather than terminal sampling.
+
+### 7a.4 Effect on optimisation
+
+Two instructions are only ever combined if they carry the _same_ predicate, and
+the optimiser's adjacency analysis tracks classical bits as well as qubits. Both
+rules are load-bearing; `docs/classical-control-design.md` gives the
+counterexample that motivates the second.
+
 ## 8. Compilation stages
 
 ```
@@ -351,6 +422,8 @@ never reused.
 | `QF109` | Expected a register size inside `[ ]`           |
 | `QF110` | Expected `,`                                    |
 | `QF111` | Expression nests deeper than the limit          |
+| `QF112` | Expected a condition after 'if'                 |
+| `QF113` | Expected '}' to close a conditional body        |
 
 ### Semantics
 
@@ -373,6 +446,10 @@ never reused.
 | `QF215` | Register size or index is not a non-negative integer     |
 | `QF216` | Unsupported language feature                             |
 | `QF217` | Constant does not evaluate to a number                   |
+| `QF218` | Condition tests something that is not a classical bit    |
+| `QF219` | Condition value needs more bits than the target has      |
+| `QF220` | Conditionals cannot be nested                            |
+| `QF221` | Conditional body is empty                                |
 
 ### Resource limits
 
@@ -482,7 +559,8 @@ and produces only the outcomes `00` and `11`, each with probability 1/2.
 
 Summarised here, detailed in [limitations.md](limitations.md):
 
-- no classical control flow, so quantum teleportation cannot be expressed
+- no `else`, no loops, and no nested conditionals
+- no classical arithmetic: a condition compares against a constant only
 - no user-defined gates or subroutines
 - no arbitrary unitary gate, and no `u`/`u3`
 - no classical arithmetic on measured bits

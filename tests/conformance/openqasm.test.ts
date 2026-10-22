@@ -296,6 +296,69 @@ describe('round trip: QForge -> OpenQASM -> simulation', () => {
   });
 });
 
+describe('classical control round-trips', () => {
+  const programs: Array<[string, string]> = [
+    ['single correction', 'qubit q; bit c; h q; measure q -> c; if (c == 1) x q;'],
+    ['not equal', 'qubit q; bit c; measure q -> c; if (c != 0) z q;'],
+    ['indexed bit', 'qubit[2] q; bit[2] c; measure q[0] -> c[1]; if (c[1] == 1) x q[1];'],
+    [
+      'whole register',
+      'qubit[2] q; bit[2] c; measure q[0] -> c[0]; measure q[1] -> c[1]; if (c == 3) z q[0];',
+    ],
+    [
+      'teleportation',
+      `qubit msg; qubit alice; qubit bob; bit m0; bit m1;
+       ry(2 * pi / 5) msg; h alice; cx alice, bob;
+       cx msg, alice; h msg;
+       measure msg -> m0; measure alice -> m1;
+       if (m1 == 1) x bob; if (m0 == 1) z bob;`,
+    ],
+  ];
+
+  it.each(programs)('%s emits a parseable if statement', (_name, source) => {
+    const code = emitOpenQasm3(moduleFromSource(source)).code;
+    expect(code).toMatch(/if \(.+\) \{ .+ \}/);
+    expect(() => parseQasm3(code)).not.toThrow();
+  });
+
+  it.each(programs)('%s preserves its predicates through the round trip', (_name, source) => {
+    const original = moduleFromSource(source);
+    const reparsed = parseQasm3(emitOpenQasm3(original).code);
+
+    const expected = original.instructions
+      .filter((i) => i.condition)
+      .map((i) => ({
+        clbits: [...i.condition!.clbits],
+        value: i.condition!.value,
+        negate: i.condition!.negate,
+      }));
+    const actual = reparsed.operations
+      .filter((o) => o.condition)
+      .map((o) => ({
+        clbits: [...o.condition!.clbits],
+        value: o.condition!.value,
+        negate: o.condition!.negate,
+      }));
+
+    expect(actual).toEqual(expected);
+  });
+
+  it('a whole-register comparison keeps the register form, not an indexed bit', () => {
+    const code = emitOpenQasm3(
+      moduleFromSource('qubit[2] q; bit[2] c; measure q[0] -> c[0]; if (c == 3) z q[0];'),
+    ).code;
+    expect(code).toContain('if (c == 3)');
+    expect(code).not.toContain('if (c[0] == 3)');
+  });
+
+  it('a single-bit comparison on a scalar keeps the bare name', () => {
+    const code = emitOpenQasm3(
+      moduleFromSource('qubit q; bit c; measure q -> c; if (c == 1) x q;'),
+    ).code;
+    expect(code).toContain('if (c == 1) { x q; }');
+  });
+});
+
 describe('every documented gate maps to a stdgates.inc name', () => {
   it('emits a parseable call for each gate at its declared arity', () => {
     const source = `

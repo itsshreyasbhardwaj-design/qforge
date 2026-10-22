@@ -6,6 +6,7 @@ import { ErrorCode } from '../diagnostics/codes.js';
 import { error, type Diagnostic } from '../diagnostics/diagnostic.js';
 import type {
   BinaryOperator,
+  ConditionExpr,
   Expression,
   OperandRef,
   Program,
@@ -45,6 +46,7 @@ const STATEMENT_START = new Set<TokenKind>([
   TokenKind.Measure,
   TokenKind.Reset,
   TokenKind.Barrier,
+  TokenKind.If,
   TokenKind.Identifier,
 ]);
 
@@ -222,6 +224,8 @@ class Parser {
         return this.parseReset();
       case TokenKind.Barrier:
         return this.parseBarrier();
+      case TokenKind.If:
+        return this.parseIf();
       case TokenKind.Identifier:
         return this.parseGateApplication();
       default:
@@ -368,6 +372,92 @@ class Parser {
     }
     const semi = this.expectSemicolon();
     return { kind: 'BarrierStatement', qubits, span: mergeSpans(keyword.span, semi.span) };
+  }
+
+  /**
+   * `if (c == 1) x q;` or `if (c == 1) { x q; z q; }`
+   *
+   * Both forms exist because the single-statement form is what feed-forward
+   * corrections actually look like (`if (m == 1) x bob;`), while the block form
+   * matches OpenQASM 3 and is what anyone wants for more than one operation.
+   * With no `else` there is no dangling-else ambiguity to resolve.
+   */
+  private parseIf(): Statement {
+    const keyword = this.advance();
+    this.expect(
+      TokenKind.LParen,
+      ErrorCode.ExpectedCondition,
+      "'(' after 'if'",
+      'Write if (result == 1) x q;',
+    );
+    const condition = this.parseCondition();
+    this.expect(
+      TokenKind.RParen,
+      ErrorCode.UnbalancedParenthesis,
+      "')' to close the condition",
+    );
+
+    const body: Statement[] = [];
+    let braced = false;
+    let end: SourceSpan;
+
+    if (this.check(TokenKind.LBrace)) {
+      braced = true;
+      this.advance();
+      while (!this.check(TokenKind.RBrace) && !this.atEnd()) {
+        // A statement inside the block that fails to parse is abandoned the
+        // same way a top-level one is, so one bad line does not swallow the
+        // closing brace and cascade through the rest of the file.
+        const before = this.index;
+        const startLine = this.current.span.line;
+        try {
+          body.push(this.parseStatement());
+        } catch (err) {
+          if (!(err instanceof RecoverError)) throw err;
+          this.synchronize(startLine);
+        }
+        if (this.index === before) this.advance();
+      }
+      end = this.expect(
+        TokenKind.RBrace,
+        ErrorCode.ExpectedBrace,
+        "'}' to close the conditional body",
+        'Every opening brace needs a matching closing brace.',
+      ).span;
+    } else {
+      const single = this.parseStatement();
+      body.push(single);
+      end = single.span;
+    }
+
+    return {
+      kind: 'IfStatement',
+      condition,
+      body,
+      braced,
+      span: mergeSpans(keyword.span, end),
+    };
+  }
+
+  /** `c == 1`, `c[0] != 0`, `result == 3` */
+  private parseCondition(): ConditionExpr {
+    const target = this.parseOperand();
+    const operatorToken = this.match(TokenKind.EqualEqual) ?? this.match(TokenKind.BangEqual);
+    if (!operatorToken) {
+      this.fail(
+        ErrorCode.ExpectedCondition,
+        `Expected '==' or '!=' in the condition, found ${describeToken(this.current)}`,
+        'A condition compares a classical bit with a value, as in (result == 1).',
+      );
+    }
+    const value = this.parseExpression();
+    return {
+      kind: 'ConditionExpr',
+      target,
+      operator: operatorToken.text as '==' | '!=',
+      value,
+      span: mergeSpans(target.span, value.span),
+    };
   }
 
   private expectSemicolon(): Token {

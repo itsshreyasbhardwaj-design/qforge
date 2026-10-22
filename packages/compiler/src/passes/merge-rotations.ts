@@ -1,4 +1,10 @@
-import { Opcode, withInstructions, type IrInstruction, type IrModule } from '../ir/ir.js';
+import {
+  Opcode,
+  sameCondition,
+  withInstructions,
+  type IrInstruction,
+  type IrModule,
+} from '../ir/ir.js';
 import { scanAdjacentPairs } from './adjacency.js';
 import type { Pass, PassResult } from './pass.js';
 
@@ -39,6 +45,8 @@ export const mergeRotations: Pass = {
       const b = instructions[second]!;
       if (a.opcode !== b.opcode || !MERGEABLE.has(a.opcode)) return 'none';
       if (a.qubits[0] !== b.qubits[0]) return 'none';
+      // Only fuse rotations that fire under the same circumstances.
+      if (!sameCondition(a.condition, b.condition)) return 'none';
 
       const merged = (a.params[0] ?? 0) + (b.params[0] ?? 0);
       // Rewrite the earlier instruction in place and drop the later one. The

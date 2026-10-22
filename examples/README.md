@@ -34,4 +34,5 @@ qforge run examples/bell.qf --shots 1024 --seed 42 --state
 | `deutsch-jozsa.qf` | A real algorithm with a provable one-query advantage |
 | `deutsch-jozsa-constant.qf` | The same circuit with a constant oracle |
 | `mid-circuit-measure.qf` | Measurement collapse and `reset` |
+| `teleportation.qf` | Classical feed-forward; the circuit that needs `if` |
 | `optimisable.qf` | A circuit the optimiser can shrink to nothing |

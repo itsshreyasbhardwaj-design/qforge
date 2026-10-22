@@ -49,6 +49,19 @@ function registersOf(model: SemanticModel, kind: 'qubit' | 'bit'): IrRegister[] 
 }
 
 function lowerOperation(operation: ResolvedOperation): IrInstruction {
+  // The resolved condition is already in terms of global classical-bit
+  // indices, so lowering it is a copy rather than a translation.
+  const guard = operation.condition
+    ? {
+        condition: {
+          clbits: [...operation.condition.clbits],
+          value: operation.condition.value,
+          negate: operation.condition.negate,
+          text: operation.condition.text,
+        },
+      }
+    : {};
+
   switch (operation.kind) {
     case 'gate':
       return {
@@ -58,6 +71,7 @@ function lowerOperation(operation: ResolvedOperation): IrInstruction {
         qubits: operation.qubits.map((q) => q.index),
         params: [...operation.params],
         loc: operation.node.span,
+        ...guard,
       };
 
     case 'measure':
@@ -67,6 +81,7 @@ function lowerOperation(operation: ResolvedOperation): IrInstruction {
         params: [],
         clbit: operation.clbit.index,
         loc: operation.node.span,
+        ...guard,
       };
 
     case 'reset':
@@ -75,6 +90,7 @@ function lowerOperation(operation: ResolvedOperation): IrInstruction {
         qubits: [operation.qubit.index],
         params: [],
         loc: operation.node.span,
+        ...guard,
       };
 
     case 'barrier':
@@ -83,6 +99,7 @@ function lowerOperation(operation: ResolvedOperation): IrInstruction {
         qubits: operation.qubits.map((q) => q.index),
         params: [],
         loc: operation.node.span,
+        ...guard,
       };
   }
 }

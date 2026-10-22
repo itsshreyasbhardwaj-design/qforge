@@ -1,0 +1,83 @@
+// Quantum teleportation: moving a state with two classical bits.
+//
+// Concept
+//   Alice holds an unknown qubit state and wants Bob to have it. She cannot
+//   measure it (that would destroy it) and she cannot copy it (the no-cloning
+//   theorem forbids it). What she can do is consume a shared entangled pair and
+//   send two classical bits.
+//
+//   This is the circuit that needs classical control flow: Bob's correction
+//   depends on what Alice actually measured, so it cannot be written as a fixed
+//   sequence of gates.
+//
+// The protocol
+//   1. `msg` is prepared in the state to be teleported. Here ry(2*pi/5) gives
+//      an asymmetric state, so a correction that was silently wrong would show
+//      up in the result.
+//   2. `alice` and `bob` are put into the Bell state (|00> + |11>)/sqrt(2).
+//   3. Alice performs a Bell measurement on `msg` and `alice`: cx then h, then
+//      measure both. This projects her two qubits onto one of four outcomes,
+//      destroying the original state.
+//   4. She sends the two classical bits to Bob. The `if` statements are that
+//      classical channel.
+//   5. Bob applies X if m1 is 1, then Z if m0 is 1, and now holds the state
+//      `msg` started in.
+//
+// Why this does not clone anything
+//   The measurement in step 3 collapses `msg`. After it, `msg` is in a definite
+//   computational basis state with no trace of the original amplitudes. The
+//   state exists in exactly one place before the protocol and exactly one place
+//   after, which is why teleportation does not violate no-cloning.
+//
+//   It is also not faster-than-light communication: without the two classical
+//   bits, Bob's qubit is maximally mixed. The bits travel no faster than light,
+//   and they are what make his correction possible.
+//
+// Expected measurement results
+//   `m0` and `m1` are each 0 or 1 with probability 1/2, in all four
+//   combinations, because Alice's Bell measurement is unbiased. The interesting
+//   result is not in the counts: it is that Bob's final state equals the input
+//   state in every branch. `tests/integration/teleportation.test.ts` checks
+//   exactly that, by comparing reduced density matrices across many seeds.
+//
+// Mathematical interpretation
+//   Writing the input as a|0> + b|1>, the state before Alice's measurement
+//   expands into four equally weighted terms, one per measurement outcome, each
+//   leaving Bob with a different Pauli applied to the original:
+//
+//     m0 m1 = 00  ->  Bob has  a|0> + b|1>   (identity)
+//     m0 m1 = 01  ->  Bob has  a|1> + b|0>   (X)
+//     m0 m1 = 10  ->  Bob has  a|0> - b|1>   (Z)
+//     m0 m1 = 11  ->  Bob has  a|1> - b|0>   (ZX)
+//
+//   The corrections below invert each case, which is why the order is X then Z.
+//
+// @expect qubits=3 clbits=2 gates=7
+// @expect-support 00,01,10,11
+// @expect-frequency 00=0.25
+// @expect-frequency 11=0.25
+
+qubit msg;
+qubit alice;
+qubit bob;
+
+bit m0;
+bit m1;
+
+// 1. Prepare the state to be teleported.
+ry(2 * pi / 5) msg;
+
+// 2. Alice and Bob share a Bell pair.
+h alice;
+cx alice, bob;
+
+// 3. Alice's Bell measurement on msg and her half of the pair.
+cx msg, alice;
+h msg;
+
+measure msg -> m0;
+measure alice -> m1;
+
+// 4 and 5. The two classical bits drive Bob's correction.
+if (m1 == 1) x bob;
+if (m0 == 1) z bob;

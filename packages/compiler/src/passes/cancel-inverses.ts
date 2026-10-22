@@ -3,6 +3,7 @@ import {
   FULLY_SYMMETRIC_OPCODES,
   Opcode,
   isUnitary,
+  sameCondition,
   withInstructions,
   type IrInstruction,
   type IrModule,
@@ -21,6 +22,9 @@ import type { Pass, PassResult } from './pass.js';
 function sameOperator(a: IrInstruction, b: IrInstruction): boolean {
   if (a.opcode !== b.opcode) return false;
   if (a.qubits.length !== b.qubits.length) return false;
+  // Differently predicated gates are different operators: at runtime one may
+  // fire and the other not, so `h q` and `if (c == 1) h q` never cancel.
+  if (!sameCondition(a.condition, b.condition)) return false;
 
   if (FULLY_SYMMETRIC_OPCODES.has(a.opcode)) {
     const sortedA = [...a.qubits].sort((x, y) => x - y);
@@ -99,6 +103,7 @@ export const cancelInversePair: Pass = {
       const a = module.instructions[first]!;
       const b = module.instructions[second]!;
       if (!isUnitary(a.opcode) || !isUnitary(b.opcode)) return 'none';
+      if (!sameCondition(a.condition, b.condition)) return 'none';
       const signature = GATES.get(a.opcode);
       if (!signature?.inverseOf || signature.inverseOf !== b.opcode) return 'none';
       // Both are single-qubit gates; the adjacency scan already proved they act

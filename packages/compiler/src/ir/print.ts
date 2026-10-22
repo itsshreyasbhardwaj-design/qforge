@@ -54,6 +54,11 @@ export function printIr(module: IrModule, options: PrintIrOptions = {}): string 
       parts.push(`${instruction.opcode}${params} ${operands}`.trim());
     }
 
+    if (instruction.condition) {
+      const { clbits, negate, value } = instruction.condition;
+      const bits = clbits.map((b) => `$${b}`).join(',');
+      parts.push(`if ${bits} ${negate ? '!=' : '=='} ${value}`);
+    }
     if (showSourceMap) {
       parts.push(`; line ${instruction.loc.line}:${instruction.loc.column}`);
     }

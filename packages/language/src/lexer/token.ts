@@ -16,6 +16,7 @@ export const TokenKind = {
   Reset: 'reset',
   Const: 'const',
   Barrier: 'barrier',
+  If: 'if',
 
   // Punctuation and operators
   Semicolon: ';',
@@ -24,6 +25,8 @@ export const TokenKind = {
   RParen: ')',
   LBracket: '[',
   RBracket: ']',
+  LBrace: '{',
+  RBrace: '}',
   Arrow: '->',
   Plus: '+',
   Minus: '-',
@@ -31,6 +34,8 @@ export const TokenKind = {
   Slash: '/',
   Caret: '^',
   Equals: '=',
+  EqualEqual: '==',
+  BangEqual: '!=',
 
   // Trivia (retained for tooling; the parser skips these)
   LineComment: 'line-comment',
@@ -52,6 +57,7 @@ export const KEYWORDS: Readonly<Record<string, TokenKind>> = {
   reset: TokenKind.Reset,
   const: TokenKind.Const,
   barrier: TokenKind.Barrier,
+  if: TokenKind.If,
 };
 
 export interface Token {

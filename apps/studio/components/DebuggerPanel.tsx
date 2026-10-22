@@ -159,6 +159,40 @@ export function DebuggerPanel({
                   </span>
                 </div>
 
+                {step.instruction.condition ? (
+                  <div
+                    style={{
+                      marginTop: 4,
+                      marginLeft: 36,
+                      fontSize: 11.5,
+                      display: 'flex',
+                      gap: 6,
+                      alignItems: 'baseline',
+                      flexWrap: 'wrap',
+                    }}
+                  >
+                    <span className="qf-mono" style={{ color: 'var(--color-warning)' }}>
+                      if {step.instruction.condition.text}
+                    </span>
+                    {step.conditionHeld === undefined ? null : (
+                      <span
+                        style={{
+                          color: step.conditionHeld
+                            ? 'var(--color-success)'
+                            : 'var(--color-text-faint)',
+                        }}
+                      >
+                        {/* Spelled out, not colour-coded alone: "nothing
+                            happened" and "the condition was false" look
+                            identical in the state. */}
+                        {step.conditionHeld
+                          ? 'held, so it ran'
+                          : 'did not hold, so it was skipped'}
+                      </span>
+                    )}
+                  </div>
+                ) : null}
+
                 {step.measurement ? (
                   <div
                     style={{

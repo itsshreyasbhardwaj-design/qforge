@@ -1,4 +1,4 @@
-import { Opcode, type IrInstruction, type IrModule } from '@qforge/compiler';
+import { Opcode, conditionHolds, type IrInstruction, type IrModule } from '@qforge/compiler';
 import { Statevector } from './statevector/statevector.js';
 import { Prng, randomSeed } from './rng/prng.js';
 import { applyInstruction } from './execute.js';
@@ -16,6 +16,14 @@ export interface TraceStep {
   readonly probabilities: Float64Array;
   /** Present for `measure` and `reset`: the exact probabilities and the draw. */
   readonly measurement?: MeasurementOutcome;
+  /**
+   * For a predicated instruction, whether the predicate held on this run.
+   *
+   * The debugger shows this because "nothing happened" and "the condition was
+   * false" look identical in the state, and the difference is exactly what a
+   * reader of a feed-forward circuit needs to see.
+   */
+  readonly conditionHeld?: boolean;
   /** Classical register contents after this instruction. */
   readonly classicalBits: Uint8Array;
   /**
@@ -84,6 +92,26 @@ export function traceCircuit(module: IrModule, options: TraceOptions = {}): Trac
 
   module.instructions.forEach((instruction, index) => {
     let measurement: MeasurementOutcome | undefined;
+    const held = instruction.condition
+      ? conditionHolds(instruction.condition, register)
+      : undefined;
+
+    if (held === false) {
+      // Skipped: record a step so the debugger can show the condition failing,
+      // but leave the state untouched.
+      steps.push({
+        index,
+        instruction,
+        ...(bytesUsed + bytesPerSnapshot <= budget ? { state: state.clone() } : {}),
+        probabilities: state.probabilities(),
+        classicalBits: register.slice(),
+        changedAmplitudes: [],
+        conditionHeld: false,
+      });
+      if (bytesUsed + bytesPerSnapshot <= budget) bytesUsed += bytesPerSnapshot;
+      else if (truncatedFrom === undefined) truncatedFrom = index;
+      return;
+    }
 
     switch (instruction.opcode) {
       case Opcode.Measure: {
@@ -119,6 +147,7 @@ export function traceCircuit(module: IrModule, options: TraceOptions = {}): Trac
       ...(keepAmplitudes ? { state: snapshot } : {}),
       probabilities: state.probabilities(),
       ...(measurement ? { measurement } : {}),
+      ...(held !== undefined ? { conditionHeld: held } : {}),
       classicalBits: register.slice(),
       changedAmplitudes,
     });

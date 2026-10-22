@@ -83,6 +83,52 @@ export const FULLY_SYMMETRIC_OPCODES: ReadonlySet<Opcode> = new Set<Opcode>([
   Opcode.Swap,
 ]);
 
+/**
+ * A classical predicate guarding one instruction.
+ *
+ * Classical control is represented by *predicating* individual instructions
+ * rather than by nesting them inside a block. The IR therefore stays a flat
+ * list, which is the invariant the optimisation passes, the step debugger and
+ * the circuit renderer are all built on. Predication is how real compilers
+ * handle short conditional regions, and here it means `if` cost no structural
+ * change at all downstream.
+ */
+export interface IrCondition {
+  /** Classical bit indices, least significant first. */
+  readonly clbits: readonly number[];
+  /** Integer the register value is compared against. */
+  readonly value: number;
+  /** True for `!=`. */
+  readonly negate: boolean;
+  /** Display form, e.g. `c == 1`. */
+  readonly text: string;
+}
+
+/** Do two predicates test the same thing? Used by the optimiser's safety check. */
+export function sameCondition(a: IrCondition | undefined, b: IrCondition | undefined): boolean {
+  if (a === undefined || b === undefined) return a === b;
+  return (
+    a.value === b.value &&
+    a.negate === b.negate &&
+    a.clbits.length === b.clbits.length &&
+    a.clbits.every((c, i) => c === b.clbits[i])
+  );
+}
+
+/** Evaluate a predicate against a classical register. */
+export function conditionHolds(
+  condition: IrCondition,
+  register: { readonly [index: number]: number } & { readonly length: number },
+): boolean {
+  let actual = 0;
+  for (let i = 0; i < condition.clbits.length; i++) {
+    const bit = register[condition.clbits[i]!] ?? 0;
+    if (bit) actual |= 1 << i;
+  }
+  const equal = actual === condition.value;
+  return condition.negate ? !equal : equal;
+}
+
 export interface IrInstruction {
   readonly opcode: Opcode;
   /** Global qubit indices, in operand order (control(s) first, then target). */
@@ -93,6 +139,8 @@ export interface IrInstruction {
   readonly clbit?: number;
   /** Span of the source statement this instruction was lowered from. */
   readonly loc: SourceSpan;
+  /** Classical predicate; the instruction runs only when it holds. */
+  readonly condition?: IrCondition;
 }
 
 /**
@@ -198,6 +246,37 @@ export function touchedQubits(instruction: IrInstruction, qubitCount: number): n
     return Array.from({ length: qubitCount }, (_, i) => i);
   }
   return [...instruction.qubits];
+}
+
+/**
+ * Every resource an instruction depends on or modifies, in one combined index
+ * space: qubits keep their own indices, classical bit `c` becomes
+ * `qubitCount + c`.
+ *
+ * This is what the optimiser's adjacency scan walks. Tracking qubits alone was
+ * not enough once predication arrived: given
+ *
+ *   if (c == 1) h q1;  measure q0 -> c;  if (c == 1) h q1;
+ *
+ * the two conditional gates touch the same *qubit* with nothing between them,
+ * so a qubit-only scan would see an adjacent pair of self-inverse gates and
+ * cancel them. That is wrong -- the measurement in between can change `c`, so
+ * at runtime one may fire and the other not. Including the classical bits a
+ * predicate reads, and the bit a measurement writes, makes the dependency
+ * visible and the rewrite is correctly refused.
+ */
+export function touchedResources(instruction: IrInstruction, qubitCount: number): number[] {
+  const resources = touchedQubits(instruction, qubitCount);
+  if (instruction.clbit !== undefined) resources.push(qubitCount + instruction.clbit);
+  for (const clbit of instruction.condition?.clbits ?? []) {
+    resources.push(qubitCount + clbit);
+  }
+  return [...new Set(resources)];
+}
+
+/** True when any instruction carries a classical predicate. */
+export function hasClassicalControl(module: IrModule): boolean {
+  return module.instructions.some((i) => i.condition !== undefined);
 }
 
 export function withInstructions(

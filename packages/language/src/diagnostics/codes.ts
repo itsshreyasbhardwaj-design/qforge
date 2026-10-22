@@ -32,6 +32,8 @@ export const ErrorCode = {
   ExpectedRegisterSize: 'QF109',
   ExpectedComma: 'QF110',
   ExpressionTooDeep: 'QF111',
+  ExpectedCondition: 'QF112',
+  ExpectedBrace: 'QF113',
 
   // --- Semantic (QF2xx) ---
   DuplicateDeclaration: 'QF201',
@@ -51,6 +53,10 @@ export const ErrorCode = {
   InvalidRegisterSize: 'QF215',
   UnsupportedFeature: 'QF216',
   ConstantNotNumeric: 'QF217',
+  ConditionNotClassical: 'QF218',
+  ConditionValueOutOfRange: 'QF219',
+  NestedConditional: 'QF220',
+  EmptyConditionalBody: 'QF221',
 
   // --- Resource limits (QF3xx) ---
   TooManyQubits: 'QF301',
