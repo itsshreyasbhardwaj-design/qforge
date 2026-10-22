@@ -63,6 +63,12 @@ because it needs a Python toolchain and about 90 MB of wheels. Trigger it for a
 release either by dispatching the workflow manually or by putting `[validate]`
 in the commit message.
 
+The gate is `contains()`, which matches **anywhere** in the message — so
+writing the token while merely describing it fires the job. The 0.2.0 release
+commit did exactly that, which is how the Qiskit job came to run on the tag
+without anyone dispatching it. Harmless, and left as it is: the failure mode
+is a free 30-second job running when it did not need to.
+
 **Pushing is a published action.** It is done when the repository owner asks
 for it, not automatically at the end of a piece of work.
 
