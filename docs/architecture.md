@@ -157,9 +157,33 @@ Studio                     state: source, optimise, shots, seed, step index
   └── CompilerInspector    tokens, AST, IR, pass report, OpenQASM
 ```
 
-Compilation is debounced by 160 ms and runs on the main thread. At the browser's
-14-qubit limit that is comfortably fast (see [benchmarks.md](benchmarks.md)); a
-Web Worker is the right next step if the limits are raised.
+Compilation is debounced by 160 ms and runs on the main thread, where it costs
+under 30 ms even for a 10,000-gate program. **Simulation runs in a Web Worker**,
+because it does not: a million-shot replay is seconds of work, and on the main
+thread it froze the editor for all of it.
+
+```
+Studio (main thread)                  simulation.worker.ts
+  compile on keystroke  ----------->  run    { runId, module, shots, seed }
+  render                <-----------  progress { runId, completed, total }
+  drop stale responses  <-----------  run-result / trace-result / error
+  cancel / timeout      ----------->  cancel { runId }
+```
+
+Three properties the worker had to provide beyond "run it elsewhere":
+
+- **Staleness.** Every message carries a run id and the hook keeps one current.
+  Edit a circuit mid-run and the older result is discarded rather than
+  overwriting the newer one.
+- **Cancellation.** A worker inside a synchronous loop cannot receive messages,
+  so the shot loop yields every 2,000 shots. That is also what makes progress
+  reporting possible at all.
+- **Recovery.** A run past 30 s is asked to stop; if it does not, the worker is
+  terminated and the next request builds a fresh one.
+
+The qubit limit did **not** move because of the worker. It is set by memory and
+by how long a user should wait, neither of which a worker changes. See
+[benchmarks.md](benchmarks.md).
 
 ## Testing
 

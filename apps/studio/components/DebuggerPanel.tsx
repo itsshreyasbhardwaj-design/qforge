@@ -2,11 +2,20 @@
 
 import { GATES } from '@qforge/language';
 import { Opcode, displayAngle } from '@qforge/compiler';
-import type { Trace } from '@qforge/simulator';
+import type { IrModule } from '@qforge/compiler';
+import type { TraceView } from '../lib/useSimulation';
 import { percent } from '../lib/format';
 
 export interface DebuggerPanelProps {
-  readonly trace: Trace | undefined;
+  readonly trace: TraceView | undefined;
+  /**
+   * The module the trace was taken from.
+   *
+   * Carried separately rather than inside the trace: the trace now crosses a
+   * worker boundary, and sending the whole module back with it would duplicate
+   * data the main thread already has.
+   */
+  readonly module: IrModule | undefined;
   readonly stepIndex: number;
   readonly onSelectStep: (index: number) => void;
   readonly onReveal: (offset: number) => void;
@@ -23,11 +32,12 @@ export interface DebuggerPanelProps {
  */
 export function DebuggerPanel({
   trace,
+  module,
   stepIndex,
   onSelectStep,
   onReveal,
 }: DebuggerPanelProps) {
-  if (!trace) {
+  if (!trace || !module) {
     return <div className="qf-empty">Compile a program to start stepping through it.</div>;
   }
   if (trace.steps.length === 0) {
@@ -39,9 +49,9 @@ export function DebuggerPanel({
   }
 
   const describeStep = (opcode: string, qubits: readonly number[], clbit?: number): string => {
-    const labels = qubits.map((q) => trace.module.qubitLabels[q] ?? `%${q}`);
+    const labels = qubits.map((q) => module.qubitLabels[q] ?? `%${q}`);
     if (opcode === Opcode.Measure) {
-      return `measure ${labels[0]} -> ${trace.module.clbitLabels[clbit ?? 0] ?? `$${clbit}`}`;
+      return `measure ${labels[0]} -> ${module.clbitLabels[clbit ?? 0] ?? `$${clbit}`}`;
     }
     if (opcode === Opcode.Barrier)
       return labels.length ? `barrier ${labels.join(', ')}` : 'barrier';
@@ -85,9 +95,14 @@ export function DebuggerPanel({
         {trace.steps.map((step) => {
           const current = step.index === stepIndex;
           const executed = step.index <= stepIndex;
-          const signature = GATES.get(step.instruction.opcode);
-          const params = step.instruction.params.length
-            ? `(${step.instruction.params.map((p) => displayAngle(p)).join(', ')})`
+          // The worker sends states and probabilities, not instructions: the
+          // main thread already has the module, and shipping it back per step
+          // would duplicate it once per gate.
+          const instruction = module.instructions[step.index];
+          if (!instruction) return null;
+          const signature = GATES.get(instruction.opcode);
+          const params = instruction.params.length
+            ? `(${instruction.params.map((p: number) => displayAngle(p)).join(', ')})`
             : '';
 
           return (
@@ -95,14 +110,14 @@ export function DebuggerPanel({
               <button
                 type="button"
                 onClick={() => onSelectStep(step.index)}
-                onDoubleClick={() => onReveal(step.instruction.loc.start)}
+                onDoubleClick={() => onReveal(instruction.loc.start)}
                 aria-current={current}
                 title={
                   signature?.description ??
                   describeStep(
-                    step.instruction.opcode,
-                    step.instruction.qubits,
-                    step.instruction.clbit,
+                    instruction.opcode,
+                    instruction.qubits,
+                    instruction.clbit,
                   )
                 }
                 style={{
@@ -136,13 +151,13 @@ export function DebuggerPanel({
                   </span>
                   <span className="qf-mono">
                     <span style={{ color: current ? 'var(--color-accent)' : 'inherit' }}>
-                      {step.instruction.opcode}
+                      {instruction.opcode}
                       {params}
                     </span>{' '}
                     {describeStep(
-                      step.instruction.opcode,
-                      step.instruction.qubits,
-                      step.instruction.clbit,
+                      instruction.opcode,
+                      instruction.qubits,
+                      instruction.clbit,
                     )
                       .split(' ')
                       .slice(1)
@@ -155,11 +170,11 @@ export function DebuggerPanel({
                       color: 'var(--color-text-faint)',
                     }}
                   >
-                    line {step.instruction.loc.line}
+                    line {instruction.loc.line}
                   </span>
                 </div>
 
-                {step.instruction.condition ? (
+                {instruction.condition ? (
                   <div
                     style={{
                       marginTop: 4,
@@ -172,7 +187,7 @@ export function DebuggerPanel({
                     }}
                   >
                     <span className="qf-mono" style={{ color: 'var(--color-warning)' }}>
-                      if {step.instruction.condition.text}
+                      if {instruction.condition.text}
                     </span>
                     {step.conditionHeld === undefined ? null : (
                       <span

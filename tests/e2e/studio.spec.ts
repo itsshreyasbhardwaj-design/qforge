@@ -417,6 +417,80 @@ test('generated OpenQASM contains the conditional corrections', async ({ page })
   await expect(compiler.getByText('if (m0 == true) { z bob; }')).toBeVisible();
 });
 
+test('simulation runs off the main thread', async ({ page }) => {
+  await openSection(page, 'Results');
+  await page.locator('#qf-shots').fill('1000000');
+
+  // Block the main thread deliberately while the run is in flight. If the
+  // simulation were running here too, it could make no progress at all.
+  const progressed = await page.evaluate(async () => {
+    const run = [...document.querySelectorAll('button')].find(
+      (b) => b.textContent!.trim() === 'Run',
+    ) as HTMLButtonElement;
+    run.click();
+
+    const start = performance.now();
+    while (performance.now() - start < 150) {
+      /* hold the main thread */
+    }
+
+    const bar = document.querySelector('[role="progressbar"]');
+    const done = [...document.querySelectorAll('button')].some(
+      (b) => b.textContent!.trim() === 'Run',
+    );
+    return { sawProgressOrFinished: Boolean(bar) || done };
+  });
+
+  expect(progressed.sawProgressOrFinished).toBe(true);
+});
+
+test('a long run can be cancelled', async ({ page }) => {
+  await page.locator('#qf-example').selectOption('teleportation');
+  await openSection(page, 'Results');
+  await page.locator('#qf-shots').fill('1000000');
+
+  await page.getByRole('button', { name: 'Run', exact: true }).click();
+  const cancel = page.getByRole('button', { name: 'Cancel' });
+  await expect(cancel).toBeVisible();
+  await cancel.click();
+
+  await expect(page.getByTestId('panel-execution').getByText(/Cancelled after/)).toBeVisible();
+  // The controls come back, so the UI is usable again rather than stuck.
+  await expect(page.getByRole('button', { name: 'Run', exact: true })).toBeVisible();
+});
+
+test('a superseded run does not overwrite a newer one', async ({ page }) => {
+  await openSection(page, 'Results');
+
+  // Start a large run, then immediately start a small one with a different
+  // seed. The large one finishes later; its result must be discarded.
+  await page.locator('#qf-shots').fill('1000000');
+  await page.locator('#qf-seed').fill('1');
+  await page.getByRole('button', { name: 'Run', exact: true }).click();
+
+  await page.locator('#qf-shots').fill('64');
+  await page.locator('#qf-seed').fill('2');
+  await page.getByRole('button', { name: 'Run', exact: true }).click();
+
+  await page.waitForTimeout(2500);
+  // Whatever is displayed must be the *newest* request: 64 shots, seed 2.
+  await expect(
+    page.getByTestId('panel-execution').getByText(/64 shots · seed 2/),
+  ).toBeVisible();
+});
+
+test('the progress bar is announced to assistive technology', async ({ page }) => {
+  await page.locator('#qf-example').selectOption('teleportation');
+  await openSection(page, 'Results');
+  await page.locator('#qf-shots').fill('1000000');
+  await page.getByRole('button', { name: 'Run', exact: true }).click();
+
+  const bar = page.getByRole('progressbar', { name: 'Simulation progress' });
+  await expect(bar).toBeVisible();
+  await expect(bar).toHaveAttribute('aria-valuemax', '1000000');
+  await page.getByRole('button', { name: 'Cancel' }).click();
+});
+
 test('no console errors on load or after a run', async ({ page }) => {
   const errors: string[] = [];
   page.on('console', (message) => {

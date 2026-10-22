@@ -1,7 +1,6 @@
 'use client';
 
-import type { ExecutionResult } from '@qforge/simulator';
-import type { Trace } from '@qforge/simulator';
+import type { RunOutcome, SimulationStatus, TraceView } from '../lib/useSimulation';
 import { duration } from '../lib/format';
 
 export interface ExecutionPanelProps {
@@ -19,9 +18,11 @@ export interface ExecutionPanelProps {
   readonly onReset: () => void;
   readonly onRunToEnd: () => void;
 
-  readonly trace: Trace | undefined;
+  readonly trace: TraceView | undefined;
   readonly stepIndex: number;
-  readonly lastRun: ExecutionResult | undefined;
+  readonly lastRun: RunOutcome | undefined;
+  readonly simulationStatus: SimulationStatus;
+  readonly onCancel: () => void;
   readonly status: string;
 }
 
@@ -52,24 +53,40 @@ export function ExecutionPanel({
   stepIndex,
   lastRun,
   status,
+  simulationStatus,
+  onCancel,
 }: ExecutionPanelProps) {
   const totalSteps = trace?.steps.length ?? 0;
   const atStart = stepIndex < 0;
   const atEnd = totalSteps === 0 || stepIndex >= totalSteps - 1;
+  const busy = simulationStatus.kind === 'running';
+  const progress =
+    busy && simulationStatus.total > 0 ? simulationStatus.completed / simulationStatus.total : 0;
 
   return (
     <div style={{ padding: '10px 12px', display: 'grid', gap: 10 }}>
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-        <button
-          type="button"
-          className="qf-button"
-          data-variant="primary"
-          onClick={onRun}
-          disabled={!canRun}
-          title="Simulate the whole circuit for the configured shot count (Ctrl/Cmd+Enter)"
-        >
-          Run
-        </button>
+        {busy ? (
+          <button
+            type="button"
+            className="qf-button"
+            onClick={onCancel}
+            title="Stop the run in progress"
+          >
+            Cancel
+          </button>
+        ) : (
+          <button
+            type="button"
+            className="qf-button"
+            data-variant="primary"
+            onClick={onRun}
+            disabled={!canRun}
+            title="Simulate the whole circuit for the configured shot count (Ctrl/Cmd+Enter)"
+          >
+            Run
+          </button>
+        )}
         <button
           type="button"
           className="qf-button"
@@ -179,6 +196,39 @@ export function ExecutionPanel({
         step trace, reproducible.
       </p>
 
+      {busy ? (
+        <div>
+          {/* A determinate bar, because the worker reports shots completed.
+              It matters for the per-shot-replay path, where a large shot count
+              on a wide circuit genuinely takes seconds. */}
+          <div
+            style={{
+              height: 4,
+              background: 'var(--color-surface-3)',
+              borderRadius: 2,
+              overflow: 'hidden',
+            }}
+            role="progressbar"
+            aria-valuemin={0}
+            aria-valuemax={simulationStatus.total}
+            aria-valuenow={simulationStatus.completed}
+            aria-label="Simulation progress"
+          >
+            <div
+              style={{
+                width: `${Math.round(progress * 100)}%`,
+                height: '100%',
+                background: 'var(--color-accent)',
+              }}
+            />
+          </div>
+          <div style={{ marginTop: 4, fontSize: 11, color: 'var(--color-text-faint)' }}>
+            {simulationStatus.completed.toLocaleString()} of{' '}
+            {simulationStatus.total.toLocaleString()} shots
+          </div>
+        </div>
+      ) : null}
+
       <div
         style={{
           borderTop: '1px solid var(--color-border)',
@@ -189,7 +239,18 @@ export function ExecutionPanel({
           gap: 3,
         }}
       >
-        <div>{status}</div>
+        <div>
+          {simulationStatus.kind === 'error' ? (
+            <span style={{ color: 'var(--color-danger)' }}>{simulationStatus.message}</span>
+          ) : simulationStatus.kind === 'cancelled' ? (
+            <span>
+              Cancelled after {simulationStatus.completed.toLocaleString()} shot
+              {simulationStatus.completed === 1 ? '' : 's'}.
+            </span>
+          ) : (
+            status
+          )}
+        </div>
         {trace ? (
           <div>
             step {stepIndex + 1} of {totalSteps} &middot; trace seed {trace.seed}

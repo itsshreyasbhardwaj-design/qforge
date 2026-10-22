@@ -9,16 +9,10 @@ import {
   type Diagnostic,
 } from '@qforge/language';
 import { statevectorBytes } from '@qforge/language';
-import {
-  executeCircuit,
-  traceCircuit,
-  probabilitiesAtStep,
-  stateAtStep,
-  type ExecutionResult,
-  type Trace,
-} from '@qforge/simulator';
+import type { Statevector } from '@qforge/simulator';
 import { EXAMPLES, DEFAULT_EXAMPLE_ID } from '../lib/examples.generated';
 import { useCompile } from '../lib/useCompile';
+import { useSimulation } from '../lib/useSimulation';
 import { bytes } from '../lib/format';
 import { Editor } from './Editor';
 import { CircuitDiagram } from './CircuitDiagram';
@@ -60,8 +54,6 @@ export function Studio() {
   const [seedText, setSeedText] = useState('42');
   const [revealOffset, setRevealOffset] = useState<number | undefined>(undefined);
   const [caretOffset, setCaretOffset] = useState(0);
-  const [lastRun, setLastRun] = useState<ExecutionResult | undefined>(undefined);
-  const [trace, setTrace] = useState<Trace | undefined>(undefined);
   const [stepIndex, setStepIndex] = useState(-1);
   const [status, setStatus] = useState('Ready. Press Run, or Step to walk the circuit.');
   const [rightTab, setRightTab] = useState('state');
@@ -69,6 +61,8 @@ export function Studio() {
 
   const narrow = useIsNarrow();
   const compileState = useCompile(source, optimize);
+  const simulation = useSimulation();
+  const { lastRun, trace } = simulation;
   const compiled = compileState.result;
   const module = compiled?.module;
 
@@ -80,37 +74,38 @@ export function Studio() {
    * Tracing executes the whole circuit once and records every intermediate
    * state, so stepping is just indexing into it. That is what makes backward
    * stepping exact: a measurement's sampled branch is recorded, not re-rolled.
+   *
+   * The work happens in the simulation worker. The response carries a run id
+   * and the hook drops anything that is not the newest request, so an edit made
+   * while a large circuit is still tracing cannot be overwritten by the older
+   * result.
    */
   useEffect(() => {
-    if (!module) {
-      setTrace(undefined);
-      setStepIndex(-1);
-      return;
-    }
-    try {
-      const seed = seedText === '' ? undefined : Number(seedText);
-      const next = traceCircuit(module, {
-        ...(seed !== undefined && Number.isFinite(seed) ? { seed } : {}),
-        maxTraceBytes: 48 * 1024 * 1024,
-      });
-      setTrace(next);
-      setStepIndex(-1);
-    } catch (error) {
-      setTrace(undefined);
-      setStatus(
-        `Could not trace the circuit: ${error instanceof Error ? error.message : String(error)}`,
-      );
-    }
+    if (!module) return;
+    const seed = seedText === '' ? undefined : Number(seedText);
+    simulation.requestTrace(
+      module,
+      seed !== undefined && Number.isFinite(seed) ? seed : undefined,
+      48 * 1024 * 1024,
+    );
+    setStepIndex(-1);
+    // Deliberately not depending on `simulation`: its methods are stable
+    // across renders, and including it would re-trace on every status change,
+    // including the progress ticks of an unrelated run.
   }, [module, seedText]);
 
-  const currentState = useMemo(
-    () => (trace ? stateAtStep(trace, stepIndex) : undefined),
-    [trace, stepIndex],
-  );
-  const currentProbabilities = useMemo(
-    () => (trace ? probabilitiesAtStep(trace, stepIndex) : undefined),
-    [trace, stepIndex],
-  );
+  /** The recorded state at `stepIndex`, where -1 is before the first gate. */
+  const currentState = useMemo((): Statevector | undefined => {
+    if (!trace) return undefined;
+    return stepIndex < 0 ? trace.initialState : trace.steps[stepIndex]?.state;
+  }, [trace, stepIndex]);
+
+  const currentProbabilities = useMemo((): Float64Array | undefined => {
+    if (!trace) return undefined;
+    return stepIndex < 0
+      ? trace.initialState.probabilities()
+      : trace.steps[stepIndex]?.probabilities;
+  }, [trace, stepIndex]);
   const changedAmplitudes = useMemo(
     () => (stepIndex >= 0 ? trace?.steps[stepIndex]?.changedAmplitudes : undefined),
     [trace, stepIndex],
@@ -118,25 +113,18 @@ export function Studio() {
 
   const handleRun = useCallback(() => {
     if (!module) return;
-    try {
-      const seed = seedText === '' ? undefined : Number(seedText);
-      const result = executeCircuit(module, {
-        shots,
-        ...(seed !== undefined && Number.isFinite(seed) ? { seed } : {}),
-      });
-      setLastRun(result);
-      // Showing the end of the trace after a run keeps the state panel
-      // consistent with the counts the user is now looking at.
-      setStepIndex((trace?.steps.length ?? 0) - 1);
-      setStatus(
-        `Ran ${result.shots.toLocaleString()} shot${result.shots === 1 ? '' : 's'} with seed ${result.seed}.`,
-      );
-      if (narrow) setNarrowTab('results');
-      else setRightTab('counts');
-    } catch (error) {
-      setStatus(`Run failed: ${error instanceof Error ? error.message : String(error)}`);
-    }
+    const seed = seedText === '' ? undefined : Number(seedText);
+    simulation.run(module, shots, seed !== undefined && Number.isFinite(seed) ? seed : undefined);
+    // Showing the end of the trace after a run keeps the state panel consistent
+    // with the counts the user is about to look at.
+    setStepIndex((trace?.steps.length ?? 0) - 1);
+    if (narrow) setNarrowTab('results');
+    else setRightTab('counts');
   }, [module, narrow, seedText, shots, trace]);
+
+  const handleCancel = useCallback(() => {
+    simulation.cancel();
+  }, []);
 
   const handleStepForward = useCallback(() => {
     if (!trace) return;
@@ -150,7 +138,7 @@ export function Studio() {
 
   const handleReset = useCallback(() => {
     setStepIndex(-1);
-    setLastRun(undefined);
+    simulation.clearRun();
     setStatus('Reset to the initial state.');
   }, []);
 
@@ -173,10 +161,10 @@ export function Studio() {
   const handleSelectGate = useCallback(
     (index: number) => {
       setStepIndex(index);
-      const instruction = trace?.module.instructions[index];
+      const instruction = module?.instructions[index];
       if (instruction) handleReveal(instruction.loc.start);
     },
-    [handleReveal, trace],
+    [handleReveal, module],
   );
 
   const handleFormat = useCallback(() => {
@@ -198,7 +186,7 @@ export function Studio() {
     if (!example) return;
     setExampleId(id);
     setSource(example.source);
-    setLastRun(undefined);
+    simulation.clearRun();
     setStepIndex(-1);
     setStatus(`Loaded ${example.file}.`);
   }, []);
@@ -344,6 +332,8 @@ export function Studio() {
           stepIndex={stepIndex}
           lastRun={lastRun}
           status={status}
+          simulationStatus={simulation.status}
+          onCancel={handleCancel}
         />
       </div>
     </section>
@@ -435,6 +425,7 @@ export function Studio() {
       <div className="qf-panel-body">
         <DebuggerPanel
           trace={trace}
+          module={module}
           stepIndex={stepIndex}
           onSelectStep={setStepIndex}
           onReveal={handleReveal}

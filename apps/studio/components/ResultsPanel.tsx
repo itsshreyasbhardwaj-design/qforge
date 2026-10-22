@@ -8,11 +8,11 @@ import {
   opcodeHistogram,
   type IrModule,
 } from '@qforge/compiler';
-import type { ExecutionResult } from '@qforge/simulator';
+import type { RunOutcome } from '../lib/useSimulation';
 import { percent } from '../lib/format';
 
 export interface CountsTableProps {
-  readonly result: ExecutionResult | undefined;
+  readonly result: RunOutcome | undefined;
   readonly clbitLabels: readonly string[];
 }
 

@@ -143,6 +143,36 @@ and about 0.9 s for a 390-gate circuit — fine for a CLI, too slow for an edito
 that recompiles as you type. 26 qubits is 1 GiB of amplitudes, which is the hard
 ceiling regardless of configuration.
 
+## Studio: main-thread impact of the Web Worker
+
+Measured by `pnpm bench:studio` against the production build in headless
+Chromium 156, by sampling a 4 ms timer and recording the gap since the previous
+tick. A blocked main thread cannot run the timer, so the gap _is_ the length of
+the block.
+
+| Circuit                        |     Shots | Wall clock | Median gap | Longest gap |
+| ------------------------------ | --------: | ---------: | ---------: | ----------: |
+| Bell, terminal sampling        | 1,000,000 |     0.21 s |     5.0 ms |      6.6 ms |
+| Teleportation, per-shot replay |   200,000 |     0.79 s |     4.9 ms |      6.2 ms |
+| GHZ-3, terminal sampling       | 1,000,000 |     0.22 s |     5.0 ms |      5.8 ms |
+
+**Control.** A deliberate 400 ms synchronous block in the same page was measured
+as a 402 ms gap. Without that control the figures above would be worthless: a
+measurement that reports no blocking might simply be broken, and the first
+version of this benchmark was — it used the Long Tasks API, which never fired in
+headless Chromium, and would have reported a reassuring "0 long tasks" for a
+completely frozen page.
+
+**What this shows.** The longest main-thread gap during a one-million-shot run
+is 6.6 ms, which is the timer's own granularity. The simulation is not on the
+main thread at all.
+
+**What it does not show.** The worker did not make the computation faster — it
+is the same kernels running the same work, and the wall-clock column confirms
+it. Before the worker, that wall clock was also how long the editor was frozen:
+a 200,000-shot teleportation run blocked typing for most of a second. The gain
+is responsiveness, not throughput.
+
 ## What these numbers do not show
 
 - Only one machine, one OS and one Node version. No cross-platform comparison.
@@ -151,4 +181,5 @@ ceiling regardless of configuration.
   very different runtimes, and an unfair comparison is worse than none.
 - No profiling of the studio's React rendering, which is separate from the
   engine cost measured here.
-- The browser is not benchmarked at all; these are Node figures.
+- The browser figures above cover main-thread blocking only. Simulation
+  throughput in the browser is not separately benchmarked against Node.
