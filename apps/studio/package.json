@@ -1,6 +1,6 @@
 {
   "name": "@qforge/studio",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "description": "QForge Studio: a browser development environment for the QForge quantum language.",
   "type": "module",

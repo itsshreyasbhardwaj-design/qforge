@@ -1,6 +1,6 @@
 {
   "name": "@qforge/simulator",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "QForge statevector simulator: complex arithmetic, gate kernels, seeded measurement and execution traces.",
   "license": "MIT",
   "type": "module",

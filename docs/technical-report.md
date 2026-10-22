@@ -498,7 +498,7 @@ Stated here in summary; the full list is in
 - Statevector only, so the qubit ceiling is hard: 14 in the browser, 20 in the
   CLI, 26 absolute.
 - No user-defined gates and no subroutines.
-- The gate set is 16 gates. `cy`, `ch`, controlled rotations and `u` are absent.
+- The gate set is 17 gates. `cy`, `ch`, controlled rotations and `u` are absent.
 
 ---
 

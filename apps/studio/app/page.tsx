@@ -1,10 +1,11 @@
-import { Studio } from '../components/Studio';
+import { Landing } from '../components/Landing';
 
 /**
- * The studio is a single client-side page. There is no server component doing
- * work here and no API route: the compiler and simulator run in the browser, so
- * a program written in the editor never leaves the machine it was typed on.
+ * The landing page: what QForge is, what it cannot do, and how to check both.
+ *
+ * Deliberately static and free of client components, so it renders without
+ * waiting for the editor's chunks. The studio lives at `/studio`.
  */
 export default function Page() {
-  return <Studio />;
+  return <Landing />;
 }

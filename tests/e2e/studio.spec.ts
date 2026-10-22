@@ -90,7 +90,7 @@ async function openSection(page: Page, name: string) {
 }
 
 test.beforeEach(async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/studio');
 });
 
 test('loads with the Bell example and compiles it', async ({ page }) => {
@@ -585,7 +585,7 @@ test('no console errors on load or after a run', async ({ page }) => {
   });
   page.on('pageerror', (error) => errors.push(error.message));
 
-  await page.goto('/');
+  await page.goto('/studio');
   await waitForEditor(page);
   await openSection(page, 'Results');
   await page.getByRole('button', { name: 'Run', exact: true }).click();
@@ -675,4 +675,22 @@ test('the walkthrough panel can be opened and closed', async ({ page }) => {
   await lessons(page).getByRole('button', { name: 'Back to the editor' }).click();
   await expect(page.getByTestId('panel-lessons')).toHaveCount(0);
   await expect(page.getByTestId('panel-diagnostics')).toBeVisible();
+});
+
+test('the landing page describes the project and links to the studio', async ({ page }) => {
+  await page.goto('/');
+
+  await expect(page.getByRole('heading', { name: 'QForge', exact: true })).toBeVisible();
+
+  // The limitations are on the page itself, not only behind a link: a reader
+  // who never clicks through should still learn what it cannot do.
+  await expect(page.getByText('It does not', { exact: true })).toBeVisible();
+  await expect(page.getByText(/No noise model/)).toBeVisible();
+
+  // The AI-assistance disclosure is on the landing page, not buried in a doc.
+  await expect(page.getByText(/Built with AI assistance/)).toBeVisible();
+
+  await page.getByRole('link', { name: 'Open the studio' }).click();
+  await waitForEditor(page);
+  await expect(page.locator('#qf-example')).toHaveValue('bell');
 });

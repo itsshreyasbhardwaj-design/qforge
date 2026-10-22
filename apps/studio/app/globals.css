@@ -250,6 +250,10 @@ body {
   white-space: pre;
   color: var(--color-text);
   tab-size: 2;
+  /* Preformatted text must not be allowed to widen its container: on a phone a
+     single long line would otherwise push the whole page sideways. */
+  overflow-x: auto;
+  max-width: 100%;
 }
 
 .qf-empty {

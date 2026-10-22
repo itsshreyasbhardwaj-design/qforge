@@ -127,7 +127,7 @@ qforge --help
 Or open the studio:
 
 ```bash
-pnpm dev     # http://localhost:3147
+pnpm dev     # http://localhost:3147 is the landing page; the studio is at /studio
 ```
 
 ## How the compiler works
@@ -344,13 +344,27 @@ pnpm typecheck         # project-wide TypeScript
 | [benchmarks.md](docs/benchmarks.md)                             | Measured performance                                                      |
 | [cli.md](docs/cli.md)                                           | Command reference                                                         |
 | [technical-brief.md](docs/technical-brief.md)                   | One-page summary                                                          |
+| [portfolio.md](docs/portfolio.md)                               | What to show, to whom, and an engineering case study                      |
+| [technical-report.md](docs/technical-report.md)                 | The whole system in a research style, with threats to validity            |
+| [claim-verification.md](docs/claim-verification.md)             | Every claim here, and the command that checks it                          |
+| [technical-mastery.md](docs/technical-mastery.md)               | Contribution disclosure, and what owning this code means                  |
+| [user-testing-protocol.md](docs/user-testing-protocol.md)       | A protocol for testing with people. Not yet run; no results               |
 
 ## Project status
 
-Version 0.1, first public release. Built with AI assistance; the architecture,
-conventions and correctness arguments are documented in full so they can be
-reviewed rather than taken on trust. See
-[author-learning-guide.md](docs/author-learning-guide.md).
+Version 0.2. **The implementation was written by an AI coding assistant working
+from written specifications.** What that leaves — the decisions that shaped the
+system, and the results validated by tools developed independently of it — is
+set out in [technical-mastery.md](docs/technical-mastery.md) rather than left
+for a reader to work out. The architecture, conventions and correctness
+arguments are documented in full so they can be reviewed rather than taken on
+trust; [author-learning-guide.md](docs/author-learning-guide.md) is the
+self-check that goes with them.
+
+No user testing has been run, and no users, adoption or recognition are
+claimed. [claim-verification.md](docs/claim-verification.md) lists every claim
+this repository makes alongside the command that checks it, including the ones
+it deliberately does not make.
 
 Not published to npm. Package names are unverified.
 

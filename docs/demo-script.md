@@ -96,7 +96,7 @@ qforge compile examples/bell.qf
 ## 1:15-1:50 — The debugger
 
 ```bash
-pnpm dev     # then open http://localhost:3147
+pnpm dev     # then open http://localhost:3147/studio
 ```
 
 In the studio, with `bell.qf` loaded:

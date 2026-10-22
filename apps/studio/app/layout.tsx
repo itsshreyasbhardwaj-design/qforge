@@ -2,10 +2,10 @@ import type { Metadata, Viewport } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'QForge Studio',
+  title: 'QForge',
   description:
-    'Write quantum programs and understand what they do: a compiler, statevector simulator and step debugger for the QForge language, running entirely in your browser.',
-  applicationName: 'QForge Studio',
+    'A small quantum programming language with a compiler written from scratch, an independent statevector simulator and a step debugger. Runs entirely in your browser.',
+  applicationName: 'QForge',
   authors: [{ name: 'QForge' }],
   keywords: ['quantum computing', 'compiler', 'OpenQASM', 'simulator', 'education'],
 };

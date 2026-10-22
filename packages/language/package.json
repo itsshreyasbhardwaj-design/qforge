@@ -1,6 +1,6 @@
 {
   "name": "@qforge/language",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "QForge language frontend: lexer, parser, typed AST, semantic analysis and diagnostics.",
   "license": "MIT",
   "type": "module",
