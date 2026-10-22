@@ -11,3 +11,4 @@ playwright-report/
 test-results/
 .env*
 !.env.example
+next-env.d.ts
