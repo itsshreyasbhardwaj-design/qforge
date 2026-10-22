@@ -37,6 +37,36 @@ async function setSource(page: Page, source: string) {
   await page.waitForTimeout(400);
 }
 
+/**
+ * The editor's current contents.
+ *
+ * `window.monaco` is published by the loader, which resolves separately from
+ * the editor becoming visible, so both have to be waited for.
+ */
+async function readSource(page: Page): Promise<string> {
+  await waitForEditor(page);
+  await page.waitForFunction(() => Boolean((window as never as { monaco?: unknown }).monaco));
+  return page.evaluate(() => {
+    const monaco = (
+      window as never as { monaco: { editor: { getModels(): Array<{ getValue(): string }> } } }
+    ).monaco;
+    return monaco.editor.getModels()[0]!.getValue();
+  });
+}
+
+/**
+ * Load a bundled example and wait for it to compile.
+ *
+ * Selecting an example replaces the source, and compilation is debounced by
+ * 160 ms. Acting before that lands drives the *outgoing* module, and the
+ * recompile then resets execution — so a `To end` click can silently become a
+ * no-op.
+ */
+async function selectExample(page: Page, name: string) {
+  await page.locator('#qf-example').selectOption(name);
+  await page.waitForTimeout(400);
+}
+
 /** The results panel, so basis-state labels in the editor's comments do not match. */
 const results = (page: Page) => page.getByTestId('panel-results');
 
@@ -192,7 +222,7 @@ test('compiler inspector exposes every stage', async ({ page }) => {
 });
 
 test('optimisation is off by default and reports its work when enabled', async ({ page }) => {
-  await page.locator('#qf-example').selectOption('optimisable');
+  await selectExample(page, 'optimisable');
   await openSection(page, 'Compiler');
 
   await page.getByRole('tab', { name: 'Optimiser' }).click();
@@ -209,7 +239,7 @@ test('optimisation is off by default and reports its work when enabled', async (
 });
 
 test('the optimisation explorer shows what each pass removed, and why', async ({ page }) => {
-  await page.locator('#qf-example').selectOption('optimisable');
+  await selectExample(page, 'optimisable');
   await openSection(page, 'Compiler');
   await page.getByRole('tab', { name: 'Optimiser' }).click();
   const compiler = page.getByTestId('panel-compiler');
@@ -391,7 +421,7 @@ test('Bloch panel reports both Bell qubits as maximally mixed', async ({ page })
 });
 
 test('teleportation renders a classical control bus', async ({ page }) => {
-  await page.locator('#qf-example').selectOption('teleportation');
+  await selectExample(page, 'teleportation');
   await openSection(page, 'Circuit');
 
   const diagram = page.getByRole('img', { name: /Circuit with 3 qubits/ });
@@ -422,7 +452,7 @@ test('teleportation renders a classical control bus', async ({ page }) => {
 });
 
 test('the debugger says whether each correction fired', async ({ page }) => {
-  await page.locator('#qf-example').selectOption('teleportation');
+  await selectExample(page, 'teleportation');
   await openSection(page, 'Debug');
   await page.getByRole('button', { name: 'To end' }).click();
 
@@ -437,7 +467,7 @@ test('the debugger says whether each correction fired', async ({ page }) => {
 });
 
 test('teleportation delivers the input state to Bob', async ({ page }) => {
-  await page.locator('#qf-example').selectOption('teleportation');
+  await selectExample(page, 'teleportation');
   await openSection(page, 'Debug');
   await page.getByRole('button', { name: 'To end' }).click();
 
@@ -452,7 +482,7 @@ test('teleportation delivers the input state to Bob', async ({ page }) => {
 });
 
 test('a predicated circuit reports that it replays per shot', async ({ page }) => {
-  await page.locator('#qf-example').selectOption('teleportation');
+  await selectExample(page, 'teleportation');
   await openSection(page, 'Results');
   await page.getByRole('button', { name: 'Run', exact: true }).click();
   await openSection(page, 'Results');
@@ -463,7 +493,7 @@ test('a predicated circuit reports that it replays per shot', async ({ page }) =
 });
 
 test('generated OpenQASM contains the conditional corrections', async ({ page }) => {
-  await page.locator('#qf-example').selectOption('teleportation');
+  await selectExample(page, 'teleportation');
   await openSection(page, 'Compiler');
   await page.getByRole('tab', { name: 'OpenQASM 3' }).click();
 
@@ -502,7 +532,7 @@ test('simulation runs off the main thread', async ({ page }) => {
 });
 
 test('a long run can be cancelled', async ({ page }) => {
-  await page.locator('#qf-example').selectOption('teleportation');
+  await selectExample(page, 'teleportation');
   await openSection(page, 'Results');
   await page.locator('#qf-shots').fill('1000000');
 
@@ -537,7 +567,7 @@ test('a superseded run does not overwrite a newer one', async ({ page }) => {
 });
 
 test('the progress bar is announced to assistive technology', async ({ page }) => {
-  await page.locator('#qf-example').selectOption('teleportation');
+  await selectExample(page, 'teleportation');
   await openSection(page, 'Results');
   await page.locator('#qf-shots').fill('1000000');
   await page.getByRole('button', { name: 'Run', exact: true }).click();
@@ -562,4 +592,87 @@ test('no console errors on load or after a run', async ({ page }) => {
   await page.waitForTimeout(800);
 
   expect(errors).toEqual([]);
+});
+
+/** The guided-walkthrough panel. */
+const lessons = (page: Page) => page.getByTestId('panel-lessons');
+
+/**
+ * Open the walkthrough panel and start the named lesson.
+ *
+ * The panel is pinned outside the tab strip, so it stays on screen while a
+ * lesson step switches to the panel it is talking about.
+ */
+async function startLesson(page: Page, title: string) {
+  await waitForEditor(page);
+  await page.getByRole('button', { name: 'Learn', exact: true }).click();
+  await lessons(page)
+    .getByRole('button', { name: new RegExp(`^${title}`) })
+    .click();
+}
+
+/** Advance the open walkthrough by `times` steps. */
+async function lessonNext(page: Page, times = 1) {
+  for (let i = 0; i < times; i++) {
+    await lessons(page).getByRole('button', { name: 'Next', exact: true }).click();
+    await page.waitForTimeout(300);
+  }
+}
+
+test('a walkthrough loads its program and drives the debugger', async ({ page }) => {
+  await startLesson(page, 'Entanglement');
+
+  // The lesson's first action replaces the editor contents for real. Its step
+  // has also just opened the Results tab, which on a narrow layout unmounts the
+  // editor, so bring it back before reading it.
+  await openSection(page, 'Code');
+  expect(await readSource(page)).toContain('cx alice, bob');
+
+  // Step 1 claims both qubits are pure. Check it against the panel.
+  await openSection(page, 'Results');
+  await expect(results(page).getByText('pure', { exact: true })).toHaveCount(2);
+
+  // Steps 2 and 3: after cx, the lesson claims both Bloch vectors collapse.
+  await lessonNext(page, 2);
+  await expect(lessons(page).getByText('Entangle them')).toBeVisible();
+
+  await openSection(page, 'Results');
+  await expect(results(page).getByText('maximally mixed (entangled)')).toHaveCount(2);
+});
+
+test('the entanglement walkthrough ends with only two measured outcomes', async ({ page }) => {
+  await startLesson(page, 'Entanglement');
+  await lessonNext(page, 4);
+
+  await openSection(page, 'Results');
+  const keys = results(page).locator('tbody tr td:first-child');
+  await expect(keys).toHaveCount(2, { timeout: 20_000 });
+  expect((await keys.allInnerTexts()).sort()).toEqual(['00', '11']);
+});
+
+test('the teleportation walkthrough leaves Bob holding the prepared state', async ({
+  page,
+}) => {
+  await startLesson(page, 'Teleportation');
+  // Through the Bell pair, Alice's measurement and the classical corrections.
+  await lessonNext(page, 4);
+
+  await expect(lessons(page).getByText('Bob has the state')).toBeVisible();
+
+  // ry(2*pi/5) prepares z = cos(2*pi/5) = 0.3090. If a correction had been
+  // skipped or misapplied, bob would be somewhere else entirely.
+  await openSection(page, 'Results');
+  const bob = results(page).locator('tbody tr').filter({ hasText: 'bob' });
+  await expect(bob).toContainText('0.3090');
+  await expect(bob).toContainText('pure');
+});
+
+test('the walkthrough panel can be opened and closed', async ({ page }) => {
+  await waitForEditor(page);
+  await page.getByRole('button', { name: 'Learn', exact: true }).click();
+  await expect(lessons(page).getByText('Guided walkthroughs')).toBeVisible();
+
+  await lessons(page).getByRole('button', { name: 'Back to the editor' }).click();
+  await expect(page.getByTestId('panel-lessons')).toHaveCount(0);
+  await expect(page.getByTestId('panel-diagnostics')).toBeVisible();
 });

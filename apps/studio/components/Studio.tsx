@@ -11,6 +11,7 @@ import {
 import { statevectorBytes } from '@qforge/language';
 import type { Statevector } from '@qforge/simulator';
 import { EXAMPLES, DEFAULT_EXAMPLE_ID } from '../lib/examples.generated';
+import type { LessonAction } from '../lib/lessons';
 import { useCompile } from '../lib/useCompile';
 import { useSimulation } from '../lib/useSimulation';
 import { bytes } from '../lib/format';
@@ -25,6 +26,7 @@ import { ProbabilityChart } from './ProbabilityChart';
 import { BlochPanel } from './BlochPanel';
 import { DiagnosticsList } from './DiagnosticsList';
 import { GateInspector } from './GateInspector';
+import { LessonPanel } from './LessonPanel';
 import { Tabs, TabPanel } from './Tabs';
 
 const DEFAULT_SOURCE =
@@ -59,6 +61,7 @@ export function Studio() {
   const [status, setStatus] = useState('Ready. Press Run, or Step to walk the circuit.');
   const [rightTab, setRightTab] = useState('state');
   const [narrowTab, setNarrowTab] = useState('editor');
+  const [lessonsOpen, setLessonsOpen] = useState(false);
 
   const narrow = useIsNarrow();
   const compileState = useCompile(source, optimize);
@@ -200,6 +203,36 @@ export function Studio() {
     setStatus(`Loaded ${example.file}.`);
   }, []);
 
+  /**
+   * Perform a walkthrough step's action.
+   *
+   * The lesson data says what to do; this is the only place that knows how.
+   * Keeping it here means a lesson cannot reach into studio state directly and
+   * get it subtly wrong.
+   */
+  const handleLessonAction = useCallback(
+    (action: LessonAction) => {
+      if (action.source !== undefined) {
+        setSource(action.source);
+        simulation.clearRun();
+        setStepIndex(-1);
+      }
+      if (action.stepTo !== undefined) setStepIndex(action.stepTo);
+      if (action.resultsTab) setRightTab(action.resultsTab);
+      if (action.run !== undefined && module) {
+        setShots(action.run);
+        const seed = seedText === '' ? undefined : Number(seedText);
+        simulation.run(
+          module,
+          action.run,
+          seed !== undefined && Number.isFinite(seed) ? seed : undefined,
+        );
+      }
+      if (narrow && (action.resultsTab || action.run !== undefined)) setNarrowTab('results');
+    },
+    [module, narrow, seedText],
+  );
+
   /** Highlight the IR instruction the caret currently sits inside. */
   const caretInstructionIndex = useMemo(() => {
     if (!compiled || !module) return undefined;
@@ -280,6 +313,28 @@ export function Studio() {
             The circuit appears once the program compiles. Fix the diagnostics below.
           </div>
         )}
+      </div>
+    </section>
+  );
+
+  /**
+   * The walkthrough panel, at a caller-chosen height.
+   *
+   * The narrow layout pins it below the tab strip, where it has to leave room
+   * for the panel the current step just opened, so it gets a smaller cap than
+   * the wide layout's sidebar slot.
+   */
+  const lessonPanel = (maxHeight: number | string) => (
+    <section
+      className="qf-panel"
+      data-testid="panel-lessons"
+      style={{ flex: 'none', maxHeight, minWidth: 0 }}
+    >
+      <header className="qf-panel-header">
+        <span>Learn</span>
+      </header>
+      <div className="qf-panel-body">
+        <LessonPanel onAction={handleLessonAction} onClose={() => setLessonsOpen(false)} />
       </div>
     </section>
   );
@@ -511,6 +566,16 @@ export function Studio() {
           minWidth: 0,
         }}
       >
+        <button
+          type="button"
+          className="qf-button"
+          data-variant={lessonsOpen ? 'primary' : undefined}
+          onClick={() => setLessonsOpen((open) => !open)}
+          aria-pressed={lessonsOpen}
+          style={{ flex: 'none' }}
+        >
+          {lessonsOpen ? 'Close' : 'Learn'}
+        </button>
         <label className="qf-label" htmlFor="qf-example" style={{ margin: 0, flex: 'none' }}>
           Example
         </label>
@@ -626,10 +691,23 @@ export function Studio() {
                 display: 'flex',
                 flexDirection: 'column',
                 gap: 8,
+                overflowY: 'auto',
               }}
             >
               {runPanel}
-              {resultsPanel}
+              {/* A floor under the results panel, so that with the walkthrough
+                  pinned below the tabs it scrolls rather than being squeezed
+                  to a couple of clipped table rows. */}
+              <div
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  flex: '1 1 auto',
+                  minHeight: 300,
+                }}
+              >
+                {resultsPanel}
+              </div>
             </div>
           ) : null}
           {narrowTab === 'debug' ? (
@@ -654,6 +732,11 @@ export function Studio() {
             </div>
           ) : null}
         </div>
+        {lessonsOpen ? (
+          <div style={{ padding: '0 8px 8px', flex: 'none', minWidth: 0 }}>
+            {lessonPanel('38dvh')}
+          </div>
+        ) : null}
       </main>
     );
   }
@@ -690,7 +773,7 @@ export function Studio() {
           }}
         >
           {editorPanel}
-          {diagnosticsPanel}
+          {lessonsOpen ? lessonPanel(420) : diagnosticsPanel}
         </div>
         <div
           style={{
