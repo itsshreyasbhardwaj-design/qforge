@@ -106,11 +106,7 @@ export interface CancelledMessage {
 }
 
 export type WorkerResponse =
-  | ProgressMessage
-  | RunResultMessage
-  | TraceResultMessage
-  | ErrorMessage
-  | CancelledMessage;
+  ProgressMessage | RunResultMessage | TraceResultMessage | ErrorMessage | CancelledMessage;
 
 /**
  * Shots processed between yields to the worker's event loop.

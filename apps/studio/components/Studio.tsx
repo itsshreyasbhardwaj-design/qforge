@@ -114,7 +114,11 @@ export function Studio() {
   const handleRun = useCallback(() => {
     if (!module) return;
     const seed = seedText === '' ? undefined : Number(seedText);
-    simulation.run(module, shots, seed !== undefined && Number.isFinite(seed) ? seed : undefined);
+    simulation.run(
+      module,
+      shots,
+      seed !== undefined && Number.isFinite(seed) ? seed : undefined,
+    );
     // Showing the end of the trace after a run keeps the state panel consistent
     // with the counts the user is about to look at.
     setStepIndex((trace?.steps.length ?? 0) - 1);

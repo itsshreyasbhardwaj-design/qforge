@@ -61,7 +61,9 @@ export function ExecutionPanel({
   const atEnd = totalSteps === 0 || stepIndex >= totalSteps - 1;
   const busy = simulationStatus.kind === 'running';
   const progress =
-    busy && simulationStatus.total > 0 ? simulationStatus.completed / simulationStatus.total : 0;
+    busy && simulationStatus.total > 0
+      ? simulationStatus.completed / simulationStatus.total
+      : 0;
 
   return (
     <div style={{ padding: '10px 12px', display: 'grid', gap: 10 }}>

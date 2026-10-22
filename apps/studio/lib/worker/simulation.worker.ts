@@ -117,7 +117,8 @@ async function handleRun(request: RunRequest): Promise<void> {
         const state = Statevector.zeroState(module.qubitCount);
         const register = new Uint8Array(module.clbitCount);
         for (const instruction of module.instructions) {
-          if (instruction.condition && !conditionHolds(instruction.condition, register)) continue;
+          if (instruction.condition && !conditionHolds(instruction.condition, register))
+            continue;
           if (instruction.opcode === Opcode.Measure) {
             const outcome = measureQubit(state, instruction.qubits[0]!, rng);
             if (instruction.clbit !== undefined) register[instruction.clbit] = outcome.outcome;

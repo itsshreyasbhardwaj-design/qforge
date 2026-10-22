@@ -114,11 +114,7 @@ export function DebuggerPanel({
                 aria-current={current}
                 title={
                   signature?.description ??
-                  describeStep(
-                    instruction.opcode,
-                    instruction.qubits,
-                    instruction.clbit,
-                  )
+                  describeStep(instruction.opcode, instruction.qubits, instruction.clbit)
                 }
                 style={{
                   display: 'block',
@@ -154,11 +150,7 @@ export function DebuggerPanel({
                       {instruction.opcode}
                       {params}
                     </span>{' '}
-                    {describeStep(
-                      instruction.opcode,
-                      instruction.qubits,
-                      instruction.clbit,
-                    )
+                    {describeStep(instruction.opcode, instruction.qubits, instruction.clbit)
                       .split(' ')
                       .slice(1)
                       .join(' ')}

@@ -50,8 +50,9 @@ export default tseslint.config(
   },
 
   {
-    // Playwright specs run in Node but evaluate code in the page.
-    files: ['tests/e2e/**/*.ts'],
+    // Playwright specs and the studio benchmark run in Node but evaluate code
+    // inside the page, so they legitimately reference browser globals.
+    files: ['tests/e2e/**/*.ts', 'scripts/benchmark-studio.mjs'],
     languageOptions: {
       globals: { ...globals.node, ...globals.browser, ...globals.es2022 },
     },
