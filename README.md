@@ -235,6 +235,13 @@ H-Z-H and the rotation identities; asymmetric circuits that pin the bit order
 after optimisation; sampled frequencies against exact distributions at 5 sigma;
 and 34 browser tests driving the real engine on desktop and mobile.
 
+The Qiskit run found a real conformance bug: QForge emitted `if (c == 1)` for a
+single-bit predicate, but OpenQASM 3 types a `bit` as a bit rather than an
+integer, so the comparison must be against a boolean. The in-repo OpenQASM
+reader had been written against QForge's own output and accepted it happily —
+only an implementation with no knowledge of QForge caught it. Details in
+[validation-report.md](docs/validation-report.md).
+
 **The documentation is machine-checked too.** Every `examples/*.qf` carries
 `@expect` directives describing its qubit count, probabilities and outcomes, and
 CI executes each example and verifies them. Two genuine physics errors in the
@@ -257,10 +264,10 @@ Measured on an Apple M2, Node 24. Full tables in
 
 Stated plainly, in full in [limitations.md](docs/limitations.md):
 
-- **No classical control flow**, so **quantum teleportation cannot be
-  expressed**. It is deliberately absent from the examples rather than
-  approximated by a circuit that is not teleportation.
-- No user-defined gates, loops, subroutines or classical arithmetic.
+- Classical control is **single-branch only**: no `else`, no loops, no nested
+  conditionals, and conditions compare a bit against a constant rather than
+  being general boolean expressions.
+- No user-defined gates, subroutines or classical arithmetic.
 - Statevector only: no density matrices, noise, or stabiliser backend.
 - The OpenQASM backend covers only the subset QForge can express, and makes no
   conformance claim.
@@ -302,6 +309,8 @@ pnpm test              # unit, property, conformance, integration
 pnpm coverage          # with coverage
 pnpm build && pnpm test:e2e   # browser tests (desktop + mobile)
 pnpm verify:numpy      # cross-check against NumPy, if installed
+pnpm --filter @qforge/validation setup && \
+  pnpm --filter @qforge/validation validate   # cross-check against Qiskit
 pnpm bench             # performance measurements
 pnpm lint              # ESLint
 pnpm typecheck         # project-wide TypeScript
@@ -309,20 +318,23 @@ pnpm typecheck         # project-wide TypeScript
 
 ## Documentation
 
-| Document                                              | Covers                                                             |
-| ----------------------------------------------------- | ------------------------------------------------------------------ |
-| [learning-guide.md](docs/learning-guide.md)           | **Start here.** A guided path through the physics and the compiler |
-| [language-spec.md](docs/language-spec.md)             | Full grammar, types, every diagnostic code                         |
-| [architecture.md](docs/architecture.md)               | Packages, data structures, the pipeline                            |
-| [compiler-design.md](docs/compiler-design.md)         | Parsing strategy, IR, passes, backend                              |
-| [simulator-design.md](docs/simulator-design.md)       | Kernels, sampling, tracing, RNG                                    |
-| [quantum-math.md](docs/quantum-math.md)               | Conventions, matrices, measurement, accuracy                       |
-| [design-decisions.md](docs/design-decisions.md)       | Every significant choice and its alternatives                      |
-| [development-journal.md](docs/development-journal.md) | What actually went wrong, and how it was found                     |
-| [limitations.md](docs/limitations.md)                 | What QForge does not do                                            |
-| [benchmarks.md](docs/benchmarks.md)                   | Measured performance                                               |
-| [cli.md](docs/cli.md)                                 | Command reference                                                  |
-| [technical-brief.md](docs/technical-brief.md)         | One-page summary                                                   |
+| Document                                                        | Covers                                                                    |
+| --------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| [learning-guide.md](docs/learning-guide.md)                     | **Start here.** A guided path through the physics and the compiler        |
+| [language-spec.md](docs/language-spec.md)                       | Full grammar, types, every diagnostic code                                |
+| [architecture.md](docs/architecture.md)                         | Packages, data structures, the pipeline                                   |
+| [compiler-design.md](docs/compiler-design.md)                   | Parsing strategy, IR, passes, backend                                     |
+| [simulator-design.md](docs/simulator-design.md)                 | Kernels, sampling, tracing, RNG                                           |
+| [quantum-math.md](docs/quantum-math.md)                         | Conventions, matrices, measurement, accuracy                              |
+| [design-decisions.md](docs/design-decisions.md)                 | Every significant choice and its alternatives                             |
+| [development-journal.md](docs/development-journal.md)           | What actually went wrong, and how it was found                            |
+| [classical-control-design.md](docs/classical-control-design.md) | `if`, predication, and why the optimiser cannot move across a measurement |
+| [independent-audit.md](docs/independent-audit.md)               | The audit that preceded 0.2, and the five defects it found                |
+| [validation-report.md](docs/validation-report.md)               | Cross-validation against Qiskit                                           |
+| [limitations.md](docs/limitations.md)                           | What QForge does not do                                                   |
+| [benchmarks.md](docs/benchmarks.md)                             | Measured performance                                                      |
+| [cli.md](docs/cli.md)                                           | Command reference                                                         |
+| [technical-brief.md](docs/technical-brief.md)                   | One-page summary                                                          |
 
 ## Project status
 

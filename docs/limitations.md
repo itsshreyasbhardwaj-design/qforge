@@ -5,25 +5,25 @@ boundary or a known gap, not a bug — bugs go in the issue tracker.
 
 ## Language
 
-| Not supported                                                 | Why, and what it would take                                                                                                                                                                                          |
-| ------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Classical control flow (`if`, feed-forward on a measured bit) | The semantics are the subtle part: a simulator must branch per shot and the optimiser must stop reordering across the condition. Would need a conditional IR opcode, a branch-aware execution path and pass changes. |
-| Loops                                                         | Static unrolling would be easy; it was left out because without classical control flow it buys little, and with it the two interact.                                                                                 |
-| User-defined gates and subroutines                            | Needs nested scopes, a call-graph check for recursion, and inlining at lowering. The symbol table is a single flat map today.                                                                                        |
-| Arbitrary unitaries (`u`, `u3`, a general 2x2)                | Easy to add; omitted to keep the gate table small enough to memorise.                                                                                                                                                |
-| Classical arithmetic on measured bits                         | Requires a classical value model, which QForge does not have.                                                                                                                                                        |
-| Qubit aliasing, slicing, iteration                            | `q[0:2]` and `for q in reg` are ergonomics, not semantics.                                                                                                                                                           |
-| `float`/`int`/`bool` classical types                          | Only `const` doubles exist, and only at compile time.                                                                                                                                                                |
-| Modules, imports, multiple files                              | One file is one program.                                                                                                                                                                                             |
+| Not supported                                  | Why, and what it would take                                                                                                                                                                                                                                                                   |
+| ---------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `else`, loops, nested conditionals             | Single-branch `if` is implemented (see [classical-control-design.md](classical-control-design.md)). `else` buys nothing a second `if` does not and its absence removes the dangling-else ambiguity; nesting's natural meaning is a conjunction, better written by comparing a wider register. |
+| General boolean conditions (`&&`, `\|\|`, `!`) | A condition compares a bit or register against a compile-time constant. Anything richer needs a classical value model QForge does not have.                                                                                                                                                   |
+| Loops                                          | Static unrolling would be easy; it was left out because without classical control flow it buys little, and with it the two interact.                                                                                                                                                          |
+| User-defined gates and subroutines             | Needs nested scopes, a call-graph check for recursion, and inlining at lowering. The symbol table is a single flat map today.                                                                                                                                                                 |
+| Arbitrary unitaries (`u`, `u3`, a general 2x2) | Easy to add; omitted to keep the gate table small enough to memorise.                                                                                                                                                                                                                         |
+| Classical arithmetic on measured bits          | Requires a classical value model, which QForge does not have.                                                                                                                                                                                                                                 |
+| Qubit aliasing, slicing, iteration             | `q[0:2]` and `for q in reg` are ergonomics, not semantics.                                                                                                                                                                                                                                    |
+| `float`/`int`/`bool` classical types           | Only `const` doubles exist, and only at compile time.                                                                                                                                                                                                                                         |
+| Modules, imports, multiple files               | One file is one program.                                                                                                                                                                                                                                                                      |
 
 ### Consequences
 
-**Quantum teleportation cannot be written in QForge.** It needs Alice's two
-measured bits to select a correction on Bob's qubit, which is classical control
-flow. It is deliberately absent from `examples/` rather than being approximated
-with a version that applies the corrections unconditionally — that circuit is
-not teleportation, and presenting it as such would be the sort of misleading
-demonstration this project is trying not to be.
+**Quantum teleportation is now expressible**, and `examples/teleportation.qf`
+implements it with real classical feed-forward. It is validated on Bob's
+_state_ rather than on measurement counts — Alice's Bell measurement is
+unbiased, so the counts look identical whether or not the corrections are
+correct. See [classical-control-design.md](classical-control-design.md) section 8.
 
 **Deutsch-Jozsa, Bernstein-Vazirani and phase estimation's circuit core** are
 all expressible, because they need only unitaries and terminal measurement. Two

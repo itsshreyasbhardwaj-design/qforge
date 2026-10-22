@@ -351,11 +351,27 @@ describe('classical control round-trips', () => {
     expect(code).not.toContain('if (c[0] == 3)');
   });
 
-  it('a single-bit comparison on a scalar keeps the bare name', () => {
+  it('a single-bit comparison emits a boolean, not an integer', () => {
+    // OpenQASM 3 types a single `bit` as a bit, so `c == 1` is a type error.
+    // Qiskit's importer rejects it outright ("conditions must be
+    // 'bit == const bool' or 'bitarray == const int'"), which is how this was
+    // found -- see docs/validation-report.md.
     const code = emitOpenQasm3(
       moduleFromSource('qubit q; bit c; measure q -> c; if (c == 1) x q;'),
     ).code;
-    expect(code).toContain('if (c == 1) { x q; }');
+    expect(code).toContain('if (c == true) { x q; }');
+
+    const zero = emitOpenQasm3(
+      moduleFromSource('qubit q; bit c; measure q -> c; if (c == 0) x q;'),
+    ).code;
+    expect(zero).toContain('if (c == false) { x q; }');
+  });
+
+  it('an indexed bit also compares against a boolean', () => {
+    const code = emitOpenQasm3(
+      moduleFromSource('qubit q; bit[2] c; measure q -> c[1]; if (c[1] != 1) x q;'),
+    ).code;
+    expect(code).toContain('if (c[1] != true) { x q; }');
   });
 });
 

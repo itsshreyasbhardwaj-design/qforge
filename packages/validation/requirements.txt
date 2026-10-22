@@ -1,0 +1,5 @@
+# Pinned so a validation run is reproducible. Update deliberately, and record
+# the new versions in docs/validation-report.md when you do.
+qiskit==2.2.3
+numpy==2.5.4
+qiskit-qasm3-import==0.6.0

@@ -1,0 +1,17 @@
+{
+  "name": "@qforge/validation",
+  "version": "0.2.0",
+  "private": true,
+  "description": "Cross-validation of the QForge simulator and OpenQASM backend against Qiskit.",
+  "type": "module",
+  "scripts": {
+    "setup": "node setup.mjs",
+    "validate": "node run.mjs",
+    "validate:json": "node run.mjs --json"
+  },
+  "dependencies": {
+    "@qforge/compiler": "workspace:*",
+    "@qforge/language": "workspace:*",
+    "@qforge/simulator": "workspace:*"
+  }
+}

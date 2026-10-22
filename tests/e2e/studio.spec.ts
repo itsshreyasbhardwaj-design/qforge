@@ -411,8 +411,10 @@ test('generated OpenQASM contains the conditional corrections', async ({ page })
   await page.getByRole('tab', { name: 'OpenQASM 3' }).click();
 
   const compiler = page.getByTestId('panel-compiler');
-  await expect(compiler.getByText('if (m1 == 1) { x bob; }')).toBeVisible();
-  await expect(compiler.getByText('if (m0 == 1) { z bob; }')).toBeVisible();
+  // `== true`, not `== 1`: OpenQASM 3 types a single `bit` as a bit, so
+  // comparing it to an integer is a type error. See docs/validation-report.md.
+  await expect(compiler.getByText('if (m1 == true) { x bob; }')).toBeVisible();
+  await expect(compiler.getByText('if (m0 == true) { z bob; }')).toBeVisible();
 });
 
 test('no console errors on load or after a run', async ({ page }) => {

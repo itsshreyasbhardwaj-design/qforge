@@ -275,10 +275,15 @@ export function parseQasm3(source: string): QasmCircuit {
     if ((match = /^if\s*\((.+?)\)\s*\{\s*(.*?)\s*;?\s*\}$/.exec(statement))) {
       const conditionText = match[1]!.trim();
       const body = match[2]!.trim();
-      const parts = /^([A-Za-z_]\w*(?:\s*\[\s*\d+\s*\])?)\s*(==|!=)\s*(\d+)$/.exec(
+      // A single `bit` compares against a boolean and a `bit[n]` against an
+      // integer, which is what the OpenQASM 3 type system requires.
+      const parts = /^([A-Za-z_]\w*(?:\s*\[\s*\d+\s*\])?)\s*(==|!=)\s*(true|false|\d+)$/.exec(
         conditionText,
       );
       if (!parts) throw new QasmParseError(`Cannot parse condition '${conditionText}'`);
+      const rawValue = parts[3]!;
+      const conditionValue =
+        rawValue === 'true' ? 1 : rawValue === 'false' ? 0 : Number(rawValue);
 
       const targetText = parts[1]!.trim();
       let clbits: number[];
@@ -292,7 +297,7 @@ export function parseQasm3(source: string): QasmCircuit {
 
       const condition: QasmCondition = {
         clbits,
-        value: Number(parts[3]),
+        value: conditionValue,
         negate: parts[2] === '!=',
       };
 

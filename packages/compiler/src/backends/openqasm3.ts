@@ -212,8 +212,19 @@ export function emitOpenQasm3(module: IrModule, options: EmitQasmOptions = {}): 
     const whole =
       condition.clbits.length === reg.size &&
       condition.clbits.every((c, i) => c === reg.baseIndex + i);
-    const target = whole && reg.isRegister ? name : clbit(first);
-    return `${target} ${condition.negate ? '!=' : '=='} ${condition.value}`;
+    const operator = condition.negate ? '!=' : '==';
+
+    if (whole && reg.isRegister) {
+      // A bit array compares against an integer: `c == 3`.
+      return `${name} ${operator} ${condition.value}`;
+    }
+
+    // A single `bit` is not an integer in OpenQASM 3, so comparing it to 1 is
+    // a type error -- Qiskit's importer rejects it with "conditions must be
+    // 'bit == const bool' or 'bitarray == const int'". Found by the Qiskit
+    // interoperability check in packages/validation; see
+    // docs/validation-report.md.
+    return `${clbit(first)} ${operator} ${condition.value === 1 ? 'true' : 'false'}`;
   };
 
   for (const instruction of module.instructions) {

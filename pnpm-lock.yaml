@@ -114,6 +114,18 @@ importers:
         specifier: workspace:*
         version: link:../language
 
+  packages/validation:
+    dependencies:
+      '@qforge/compiler':
+        specifier: workspace:*
+        version: link:../compiler
+      '@qforge/language':
+        specifier: workspace:*
+        version: link:../language
+      '@qforge/simulator':
+        specifier: workspace:*
+        version: link:../simulator
+
 packages:
 
   '@alloc/quick-lru@5.3.0':

@@ -113,9 +113,36 @@ describe('documentation cross-references', () => {
     expect(readme).toContain('26 hard');
   });
 
-  it('the README does not promise features that are documented as absent', () => {
-    // Teleportation is the one most likely to creep back in.
-    expect(read('docs/limitations.md')).toContain('teleportation cannot be written');
-    expect(readme.replace(/\s+/g, ' ')).toContain('quantum teleportation cannot be expressed');
+  it('the README and limitations.md agree about what is absent', () => {
+    // These used to assert that teleportation was impossible. It is now
+    // implemented, so the guard protects the opposite invariant: neither
+    // document may still claim the old limitation, and both must name the
+    // restrictions that are real.
+    const limitations = read('docs/limitations.md');
+    const flat = (text: string) => text.replace(/\s+/g, ' ');
+
+    for (const [name, text] of [
+      ['README.md', readme],
+      ['docs/limitations.md', limitations],
+    ] as const) {
+      expect(
+        flat(text),
+        `${name} still claims teleportation cannot be expressed`,
+      ).not.toContain('teleportation cannot be');
+    }
+
+    // The restrictions that *are* real must be stated in both places.
+    expect(flat(readme)).toContain('no `else`');
+    expect(flat(limitations)).toContain('`else`');
+  });
+
+  it('the README points at the documents that justify its claims', () => {
+    for (const doc of [
+      'docs/classical-control-design.md',
+      'docs/independent-audit.md',
+      'docs/validation-report.md',
+    ]) {
+      expect(readme, `README should link to ${doc}`).toContain(doc.replace('docs/', ''));
+    }
   });
 });
