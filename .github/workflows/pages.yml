@@ -1,0 +1,78 @@
+name: Deploy the studio to GitHub Pages
+
+# Only after CI has gone green on main: a broken studio should never replace a
+# working one, and the studio is the part of this project a visitor actually
+# touches.
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# One deployment at a time, and never cancel one half-way: an interrupted
+# deploy leaves the live site in whatever state the last complete one produced,
+# which is fine, but a cancelled *upload* is not worth the risk.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build the static export
+    # `workflow_run` fires whatever CI concluded, so the gate is explicit.
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.ref }}
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.13.0
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # The studio imports the workspace packages from their `dist` output.
+      - run: pnpm build
+
+      - name: Build the studio for a project-page subpath
+        run: pnpm --filter @qforge/studio build
+        env:
+          # Pages serves a project repository under /<repo>/.
+          QFORGE_BASE_PATH: /qforge
+
+      # Pages with a workflow build does not run Jekyll, but `_next` would be
+      # dropped if it ever did, and the file costs nothing.
+      - run: touch apps/studio/out/.nojekyll
+
+      - uses: actions/configure-pages@v6
+
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: apps/studio/out
+
+  deploy:
+    name: Deploy
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v5

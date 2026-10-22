@@ -1,6 +1,18 @@
 import type { NextConfig } from 'next';
 
+/*
+ * Where the site will be served from.
+ *
+ * Empty by default, which is what local development, the Playwright suite and
+ * any root-hosted deployment need. GitHub Pages serves a project repository
+ * under `/<repo>/`, so its workflow sets QFORGE_BASE_PATH=/qforge and every
+ * asset URL, route and bundler-rewritten worker URL picks the prefix up from
+ * here rather than from a hardcoded string somewhere in the components.
+ */
+const basePath = process.env.QFORGE_BASE_PATH ?? '';
+
 const config: NextConfig = {
+  ...(basePath ? { basePath, assetPrefix: basePath } : {}),
   reactStrictMode: true,
   // The QForge packages are workspace ESM builds; Next needs to transpile them
   // rather than treat them as prebuilt external CommonJS. Run `pnpm build` at
