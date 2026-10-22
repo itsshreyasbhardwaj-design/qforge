@@ -1,5 +1,6 @@
 import { TokenKind, describeToken, type Token } from '../lexer/token.js';
 import { tokenize } from '../lexer/lexer.js';
+import { MAX_EXPRESSION_DEPTH } from '../semantic/limits.js';
 import { mergeSpans, type SourceSpan } from '../diagnostics/span.js';
 import { ErrorCode } from '../diagnostics/codes.js';
 import { error, type Diagnostic } from '../diagnostics/diagnostic.js';
@@ -49,6 +50,12 @@ const STATEMENT_START = new Set<TokenKind>([
 
 class RecoverError extends Error {}
 
+/** An expression together with the depth of the tree it forms. */
+interface Depthed {
+  readonly expr: Expression;
+  readonly depth: number;
+}
+
 /**
  * Hand-written recursive-descent parser with a Pratt sub-parser for angle
  * expressions.
@@ -65,6 +72,17 @@ class RecoverError extends Error {}
  */
 class Parser {
   private index = 0;
+  /**
+   * Current expression-parsing recursion depth.
+   *
+   * Checked on the way *down*. The tree-depth check in `checkDepth` runs as
+   * each node is built, which is too late for nested parentheses: by the time
+   * the innermost node exists, the recursion that created it has already
+   * overflowed the stack. One guard bounds the stack, the other bounds the
+   * tree, and a left-associative chain needs the second because it builds a
+   * deep tree from shallow recursion.
+   */
+  private recursionDepth = 0;
   private readonly diagnostics: Diagnostic[] = [];
 
   constructor(private readonly tokens: readonly Token[]) {}
@@ -99,7 +117,12 @@ class Parser {
   }
 
   private fail(code: ErrorCode, message: string, hint?: string, span?: SourceSpan): never {
-    this.diagnostics.push(error(code, message, span ?? this.current.span, hint));
+    // A lexically invalid token has already produced a diagnostic. Adding a
+    // syntax error at the same place would show the user two problems where
+    // there is one -- `rx(1e400) q;` used to report both QF004 and QF106.
+    if (this.current.kind !== TokenKind.Invalid) {
+      this.diagnostics.push(error(code, message, span ?? this.current.span, hint));
+    }
     throw new RecoverError(message);
   }
 
@@ -124,6 +147,9 @@ class Parser {
       }
       const startIndex = this.index;
       const startLine = this.current.span.line;
+      // Defensive: the try/finally in parseExpressionAt already unwinds this,
+      // but a leaked count would silently shrink the limit for later statements.
+      this.recursionDepth = 0;
       try {
         statements.push(this.parseStatement());
       } catch (err) {
@@ -382,7 +408,32 @@ class Parser {
 
   // ---- expressions (Pratt) ----
 
+  /**
+   * Parse an expression, discarding the depth bookkeeping.
+   *
+   * The depth-carrying variant below is what enforces `MAX_EXPRESSION_DEPTH`.
+   * Depth is tracked on the *tree*, not on parser recursion: a left-associative
+   * chain such as `1+1+1+...` parses with constant recursion but builds an
+   * arbitrarily deep left spine, which would then overflow the stack in every
+   * recursive consumer of the AST. Bounding the tree bounds all of them at once.
+   */
   parseExpression(minPrecedence = 1): Expression {
+    return this.parseExpressionAt(minPrecedence).expr;
+  }
+
+  private parseExpressionAt(minPrecedence: number): Depthed {
+    this.recursionDepth++;
+    try {
+      return this.parseExpressionInner(minPrecedence);
+    } finally {
+      this.recursionDepth--;
+    }
+  }
+
+  private parseExpressionInner(minPrecedence: number): Depthed {
+    if (this.recursionDepth > MAX_EXPRESSION_DEPTH) {
+      this.failDepth(this.recursionDepth, this.current.span);
+    }
     let left = this.parsePrefix();
 
     for (;;) {
@@ -390,28 +441,53 @@ class Parser {
       if (precedence === undefined || precedence < minPrecedence) break;
       const operator = this.advance();
       const nextMin = RIGHT_ASSOCIATIVE.has(operator.kind) ? precedence : precedence + 1;
-      const right = this.parseExpression(nextMin);
+      const right = this.parseExpressionAt(nextMin);
+      const depth = Math.max(left.depth, right.depth) + 1;
+      this.checkDepth(depth, operator.span);
       left = {
-        kind: 'BinaryExpr',
-        operator: operator.text as BinaryOperator,
-        left,
-        right,
-        span: mergeSpans(left.span, right.span),
+        expr: {
+          kind: 'BinaryExpr',
+          operator: operator.text as BinaryOperator,
+          left: left.expr,
+          right: right.expr,
+          span: mergeSpans(left.expr.span, right.expr.span),
+        },
+        depth,
       };
     }
 
     return left;
   }
 
-  private parsePrefix(): Expression {
+  /** Reject a tree deeper than the limit rather than overflowing the stack. */
+  private checkDepth(depth: number, span: SourceSpan): void {
+    if (depth <= MAX_EXPRESSION_DEPTH) return;
+    this.failDepth(depth, span);
+  }
+
+  private failDepth(depth: number, span: SourceSpan): never {
+    this.fail(
+      ErrorCode.ExpressionTooDeep,
+      `Expression nests ${depth} levels deep; the limit is ${MAX_EXPRESSION_DEPTH}`,
+      'Split it into named constants with "const", or remove redundant parentheses.',
+      span,
+    );
+  }
+
+  private parsePrefix(): Depthed {
     if (this.check(TokenKind.Plus) || this.check(TokenKind.Minus)) {
       const operator = this.advance();
-      const operand = this.parseExpression(UNARY_PRECEDENCE);
+      const operand = this.parseExpressionAt(UNARY_PRECEDENCE);
+      const depth = operand.depth + 1;
+      this.checkDepth(depth, operator.span);
       return {
-        kind: 'UnaryExpr',
-        operator: operator.text as UnaryOperator,
-        operand,
-        span: mergeSpans(operator.span, operand.span),
+        expr: {
+          kind: 'UnaryExpr',
+          operator: operator.text as UnaryOperator,
+          operand: operand.expr,
+          span: mergeSpans(operator.span, operand.expr.span),
+        },
+        depth,
       };
     }
 
@@ -420,23 +496,38 @@ class Parser {
       case TokenKind.Number:
         this.advance();
         return {
-          kind: 'NumberLiteral',
-          value: token.value ?? Number(token.text),
-          span: token.span,
+          expr: {
+            kind: 'NumberLiteral',
+            value: token.value ?? Number(token.text),
+            span: token.span,
+          },
+          depth: 1,
         };
       case TokenKind.Identifier:
         this.advance();
-        return { kind: 'IdentifierExpr', name: token.text, span: token.span };
+        return {
+          expr: { kind: 'IdentifierExpr', name: token.text, span: token.span },
+          depth: 1,
+        };
       case TokenKind.LParen: {
         const open = this.advance();
-        const inner = this.parseExpression();
+        const inner = this.parseExpressionAt(1);
         const close = this.expect(
           TokenKind.RParen,
           ErrorCode.UnbalancedParenthesis,
           "')' to close the group",
           'Every opening parenthesis needs a matching closing parenthesis.',
         );
-        return { kind: 'GroupExpr', inner, span: mergeSpans(open.span, close.span) };
+        const depth = inner.depth + 1;
+        this.checkDepth(depth, open.span);
+        return {
+          expr: {
+            kind: 'GroupExpr',
+            inner: inner.expr,
+            span: mergeSpans(open.span, close.span),
+          },
+          depth,
+        };
       }
       default:
         this.fail(

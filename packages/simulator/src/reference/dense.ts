@@ -1,5 +1,4 @@
 import { Opcode, isUnitary, type IrInstruction, type IrModule } from '@qforge/compiler';
-import { singleQubitMatrix } from '../gates/matrices.js';
 import { Statevector } from '../statevector/statevector.js';
 import { complex, type Complex } from '../complex/complex.js';
 
@@ -21,6 +20,19 @@ import { complex, type Complex } from '../complex/complex.js';
  * fast path — this file enumerates basis states, the fast path manipulates bit
  * masks — so agreement between them is real evidence.
  *
+ * ## Independence, stated precisely
+ *
+ * An earlier version of this file imported `singleQubitMatrix` from the
+ * production gate table. That made the oracle independent in *indexing and
+ * gate application* -- the part most likely to harbour a bug -- but not in the
+ * *matrices themselves*: a sign error in Y would have been invisible, because
+ * both sides would have read it from the same constant.
+ *
+ * The matrices below are therefore written out again here, from their textbook
+ * definitions, and a test asserts they agree with the production table. The
+ * oracle now shares nothing with the code it checks except the `Complex` type
+ * and the `Statevector` container.
+ *
  * It is O(4^n) in time and O(4^n) in memory, which is fine for the circuits up
  * to about 7 qubits that the test suite uses, and useless for anything larger.
  * It is a test oracle, never the execution path.
@@ -28,6 +40,77 @@ import { complex, type Complex } from '../complex/complex.js';
  * A third, out-of-language check lives in `scripts/numpy-reference.mjs`, which
  * validates the same circuits against NumPy.
  */
+
+/**
+ * Single-qubit gate matrices, defined here independently of
+ * `../gates/matrices.js`. `reference.test.ts` checks the two agree; the point
+ * of writing them twice is that the check has something to say.
+ */
+const SQRT1_2 = Math.SQRT1_2;
+type Mat2 = readonly [Complex, Complex, Complex, Complex];
+
+function referenceMatrix(opcode: Opcode, params: readonly number[]): Mat2 | undefined {
+  const t = params[0] ?? 0;
+  const half = t / 2;
+  switch (opcode) {
+    case Opcode.Id:
+      return [complex(1), complex(0), complex(0), complex(1)];
+    case Opcode.H:
+      return [complex(SQRT1_2), complex(SQRT1_2), complex(SQRT1_2), complex(-SQRT1_2)];
+    case Opcode.X:
+      return [complex(0), complex(1), complex(1), complex(0)];
+    case Opcode.Y:
+      return [complex(0), complex(0, -1), complex(0, 1), complex(0)];
+    case Opcode.Z:
+      return [complex(1), complex(0), complex(0), complex(-1)];
+    case Opcode.S:
+      return [complex(1), complex(0), complex(0), complex(0, 1)];
+    case Opcode.Sdg:
+      return [complex(1), complex(0), complex(0), complex(0, -1)];
+    case Opcode.T:
+      return [
+        complex(1),
+        complex(0),
+        complex(0),
+        complex(Math.cos(Math.PI / 4), Math.sin(Math.PI / 4)),
+      ];
+    case Opcode.Tdg:
+      return [
+        complex(1),
+        complex(0),
+        complex(0),
+        complex(Math.cos(-Math.PI / 4), Math.sin(-Math.PI / 4)),
+      ];
+    case Opcode.Rx:
+      return [
+        complex(Math.cos(half)),
+        complex(0, -Math.sin(half)),
+        complex(0, -Math.sin(half)),
+        complex(Math.cos(half)),
+      ];
+    case Opcode.Ry:
+      return [
+        complex(Math.cos(half)),
+        complex(-Math.sin(half)),
+        complex(Math.sin(half)),
+        complex(Math.cos(half)),
+      ];
+    case Opcode.Rz:
+      return [
+        complex(Math.cos(-half), Math.sin(-half)),
+        complex(0),
+        complex(0),
+        complex(Math.cos(half), Math.sin(half)),
+      ];
+    case Opcode.P:
+      return [complex(1), complex(0), complex(0), complex(Math.cos(t), Math.sin(t))];
+    default:
+      return undefined;
+  }
+}
+
+/** Exposed so a test can compare it against the production gate table. */
+export { referenceMatrix };
 
 /** Dense `size x size` complex matrix, row-major. */
 export interface DenseMatrix {
@@ -107,7 +190,7 @@ export function denseOperator(instruction: IrInstruction, qubitCount: number): D
     }
 
     default: {
-      const u = singleQubitMatrix(opcode, params);
+      const u = referenceMatrix(opcode, params);
       if (!u) throw new Error(`denseOperator: no definition for opcode '${opcode}'`);
       const target = qubits[0]!;
       const bit = 1 << target;

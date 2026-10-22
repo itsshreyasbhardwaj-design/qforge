@@ -1,3 +1,14 @@
 packages:
   - 'packages/*'
   - 'apps/*'
+
+# monaco-editor 0.57.0 -- the current release -- pins dompurify 3.4.15, which
+# carries two low-severity advisories fixed in 3.4.16. dompurify does reach the
+# studio's shipped bundle, so the override is not cosmetic. Remove it once
+# monaco ships a newer dompurify.
+#
+# pnpm 11 reads overrides from this file; the `pnpm.overrides` key in
+# package.json is ignored (it warns, but installs anyway, which is how this was
+# missed the first time).
+overrides:
+  dompurify: '>=3.4.16'

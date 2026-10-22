@@ -31,6 +31,7 @@ export const ErrorCode = {
   ExpectedCloseBracket: 'QF108',
   ExpectedRegisterSize: 'QF109',
   ExpectedComma: 'QF110',
+  ExpressionTooDeep: 'QF111',
 
   // --- Semantic (QF2xx) ---
   DuplicateDeclaration: 'QF201',

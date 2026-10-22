@@ -185,10 +185,22 @@ export function childrenOf(node: AstNode): AstNode[] {
   }
 }
 
-/** Pre-order depth-first walk. */
+/**
+ * Pre-order depth-first walk.
+ *
+ * Iterative rather than recursive. The parser bounds expression depth, but this
+ * runs on every caret move in the studio and is exported for callers who may
+ * build a tree themselves, so it should not depend on that bound holding.
+ */
 export function walk(node: AstNode, visit: (n: AstNode) => void): void {
-  visit(node);
-  for (const child of childrenOf(node)) walk(child, visit);
+  const stack: AstNode[] = [node];
+  while (stack.length > 0) {
+    const current = stack.pop()!;
+    visit(current);
+    const children = childrenOf(current);
+    // Push in reverse so children are visited left to right.
+    for (let i = children.length - 1; i >= 0; i--) stack.push(children[i]!);
+  }
 }
 
 /**

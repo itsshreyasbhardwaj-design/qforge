@@ -1,6 +1,7 @@
 import { ErrorCode } from '../diagnostics/codes.js';
 import { error, type Diagnostic } from '../diagnostics/diagnostic.js';
 import type { Expression } from '../ast/nodes.js';
+import { MAX_EXPRESSION_DEPTH } from './limits.js';
 
 /**
  * Built-in named constants available in angle expressions.
@@ -37,7 +38,24 @@ export type EvalResult =
 export function evaluateConstExpression(
   expr: Expression,
   scope: ConstScope = EMPTY_SCOPE,
+  depth = 0,
 ): EvalResult {
+  // The parser already bounds the depth of any tree it produces, so this guard
+  // only fires for an AST built programmatically. It is here because the
+  // package is a public API: a caller that hands us a 100,000-deep tree should
+  // get a diagnostic, not an uncatchable stack overflow.
+  if (depth > MAX_EXPRESSION_DEPTH) {
+    return {
+      ok: false,
+      diagnostic: error(
+        ErrorCode.ExpressionTooDeep,
+        `Expression nests deeper than ${MAX_EXPRESSION_DEPTH} levels`,
+        expr.span,
+        'Split it into named constants with "const".',
+      ),
+    };
+  }
+
   switch (expr.kind) {
     case 'NumberLiteral':
       return { ok: true, value: expr.value };
@@ -59,18 +77,18 @@ export function evaluateConstExpression(
     }
 
     case 'GroupExpr':
-      return evaluateConstExpression(expr.inner, scope);
+      return evaluateConstExpression(expr.inner, scope, depth + 1);
 
     case 'UnaryExpr': {
-      const operand = evaluateConstExpression(expr.operand, scope);
+      const operand = evaluateConstExpression(expr.operand, scope, depth + 1);
       if (!operand.ok) return operand;
       return { ok: true, value: expr.operator === '-' ? -operand.value : operand.value };
     }
 
     case 'BinaryExpr': {
-      const left = evaluateConstExpression(expr.left, scope);
+      const left = evaluateConstExpression(expr.left, scope, depth + 1);
       if (!left.ok) return left;
-      const right = evaluateConstExpression(expr.right, scope);
+      const right = evaluateConstExpression(expr.right, scope, depth + 1);
       if (!right.ok) return right;
 
       let value: number;

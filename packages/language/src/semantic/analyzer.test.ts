@@ -164,6 +164,21 @@ describe('analyzer: register indexing rules', () => {
   it('allows a single-element register to be indexed at 0', () => {
     ok('qubit[1] q; h q[0];');
   });
+
+  it('still requires an index on a single-element register', () => {
+    // Audit finding A-3: this used to be accepted, because the check keyed on
+    // the register's size rather than on how it was declared. Whether a bare
+    // name is legal must not depend on a number that could change.
+    expect(codes('qubit[1] q; h q;')).toContain('QF213');
+    expect(codes('bit[1] c; qubit q; measure q -> c;')).toContain('QF213');
+  });
+
+  it('reports the register size in the message, singular or plural', () => {
+    const one = check('qubit[1] q; h q;').diagnostics.find((d) => d.code === 'QF213')!;
+    expect(one.message).toContain('register of 1 qubit ');
+    const many = check('qubit[3] q; h q;').diagnostics.find((d) => d.code === 'QF213')!;
+    expect(many.message).toContain('register of 3 qubits ');
+  });
 });
 
 describe('analyzer: resource limits', () => {

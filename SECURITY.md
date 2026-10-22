@@ -39,6 +39,16 @@ has a guaranteed-progress recovery loop, so no input causes a hang. Diagnostics
 are returned as data rather than thrown. A deliberately pathological input set
 (`((((`, `-----`, `,,,,`, `[[[[`, …) is in the test suite.
 
+Expression nesting is capped at 256 levels (`QF111`). This is a security limit,
+not a style rule: until it was added, a 10,000-level nested expression
+overflowed the call stack and escaped as an uncaught `RangeError` — the CLI
+exited 3 printing "Maximum call stack size exceeded" with no source location,
+and the studio showed "the compiler threw an exception" for ordinary bad input.
+Two guards now back the limit, one bounding parser recursion on the way down
+and one bounding tree depth as nodes are built, because a left-associative
+chain builds a deep tree from a shallow parse. See
+`docs/independent-audit.md` finding A-1.
+
 **No secrets.** The repository contains no credentials, tokens or keys, and the
 project needs none: there is nothing to authenticate to.
 
@@ -50,7 +60,14 @@ user names on the command line. The browser build cannot read local files.
 - **Dependencies.** The studio depends on Next, React and Monaco; the toolchain
   on TypeScript, Vitest, ESLint and Playwright. The compiler, simulator and CLI
   have **no runtime dependencies at all**. All versions are pinned exactly and
-  committed in `pnpm-lock.yaml`. Run `pnpm audit` before a release.
+  committed in `pnpm-lock.yaml`. Run `pnpm audit` before a release; it currently
+  reports no known vulnerabilities.
+
+  One override is in force, in `pnpm-workspace.yaml`: monaco-editor 0.57.0 pins
+  `dompurify@3.4.15`, which carries two low-severity advisories fixed in 3.4.16,
+  and that copy does reach the studio's shipped bundle. Remove the override once
+  monaco ships a newer dompurify.
+
 - **Resource use within the limits.** A 20-qubit circuit legitimately allocates
   16 MiB and can take seconds. The limits bound this; they do not eliminate it.
 - **The CLI writes files** where `--output` or `--write` says to, with no

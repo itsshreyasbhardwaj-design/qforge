@@ -201,11 +201,15 @@ export function analyze(program: Program, options: AnalyzeOptions = {}): Semanti
     const size = entry.size ?? 1;
 
     if (!ref.index) {
-      if (size > 1) {
+      // Keyed on how the name was *declared*, not on its size. A size-1
+      // register is still a register, so `qubit[1] q; h q;` is an error just
+      // as `qubit[2] q; h q;` is: whether a bare name is legal must not depend
+      // on a number that could change.
+      if (entry.isRegister) {
         report(
           error(
             ErrorCode.RegisterWhereSingleExpected,
-            `'${ref.name}' is a register of ${size} ${expected}s and needs an index`,
+            `'${ref.name}' is a register of ${size} ${expected}${size === 1 ? '' : 's'} and needs an index`,
             ref.span,
             `Write ${ref.name}[0] to select a single element.`,
           ),

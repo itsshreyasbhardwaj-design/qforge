@@ -350,6 +350,7 @@ never reused.
 | `QF108` | Expected `]`                                    |
 | `QF109` | Expected a register size inside `[ ]`           |
 | `QF110` | Expected `,`                                    |
+| `QF111` | Expression nests deeper than the limit          |
 
 ### Semantics
 
@@ -420,6 +421,13 @@ rather than attempted.
 
 A statevector needs `2^n` complex amplitudes stored as two `Float64Array`s, so
 memory is `2^n * 16` bytes: 256 KiB at 14 qubits, 16 MiB at 20, 1 GiB at 26.
+
+The expression-depth limit is a safety limit rather than a style rule: the
+parser is recursive descent and several consumers walk the tree recursively, so
+an unbounded expression would overflow the call stack and surface as a crash
+instead of a diagnostic. The limit is on _tree_ depth, because a
+left-associative chain such as `1+1+1+...` builds a deep tree from a shallow
+parse. The deepest expression in the example library is 3.
 
 ---
 
