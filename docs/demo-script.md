@@ -8,7 +8,7 @@ staged. Run `pnpm build` first.
 ## Setup
 
 ```bash
-git clone <repo-url> qforge && cd qforge
+git clone https://github.com/itsshreyasbhardwaj-design/qforge.git qforge && cd qforge
 pnpm install
 pnpm build
 ```

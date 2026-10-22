@@ -100,7 +100,7 @@ OpenQASM, and as a quantum state you can step through gate by gate.
 Requires Node >= 20.9 and pnpm.
 
 ```bash
-git clone <repo-url> qforge && cd qforge
+git clone https://github.com/itsshreyasbhardwaj-design/qforge.git qforge && cd qforge
 pnpm install
 pnpm build
 pnpm test

@@ -5,7 +5,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        Please read [docs/limitations.md](../blob/main/docs/limitations.md)
+        Please read [docs/limitations.md](https://github.com/itsshreyasbhardwaj-design/qforge/blob/main/docs/limitations.md)
         first. Several common requests — classical control flow, user-defined
         gates, noise models — are deliberate omissions with the reasoning
         written down. Arguing against that reasoning is welcome; it just saves
