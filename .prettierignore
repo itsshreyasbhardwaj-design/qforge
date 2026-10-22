@@ -8,3 +8,5 @@ apps/studio/lib/examples.generated.ts
 test-results
 playwright-report
 next-env.d.ts
+packages/validation/report.json
+.venv
