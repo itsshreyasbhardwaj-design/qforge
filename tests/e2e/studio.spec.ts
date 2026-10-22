@@ -579,6 +579,14 @@ test('the progress bar is announced to assistive technology', async ({ page }) =
 });
 
 test('no console errors on load or after a run', async ({ page }) => {
+  // `beforeEach` has already loaded the studio. Park on a blank page before
+  // attaching the listeners, so that this test's own navigation does not abort
+  // that load's in-flight chunk requests: Firefox reports such an abort as
+  // NS_BINDING_ABORTED and WebKit as "Load failed", both on the console, while
+  // Chromium stays silent. Those are artefacts of navigating twice, not of the
+  // application — a single clean load logs nothing on any of the three.
+  await page.goto('about:blank');
+
   const errors: string[] = [];
   page.on('console', (message) => {
     if (message.type() === 'error') errors.push(message.text());

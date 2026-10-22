@@ -420,8 +420,10 @@ amplitudes rather than combining them.
 
 ### 8.3 Test suite
 
-700 unit tests across 22 files, plus 68 browser tests run against both a
-desktop viewport and a Pixel 7. Coverage is 92.8% of statements, 85.27% of
+700 unit tests across 22 files, plus 68 browser tests. The browser suite runs
+against a desktop viewport and a Pixel 7 in CI, and the same 68 tests also
+pass unmodified on Firefox and WebKit, which are opt-in locally rather than
+in CI. Coverage is 92.8% of statements, 85.27% of
 branches, 96.29% of functions and 94.29% of lines.
 
 These numbers are reported for completeness and should not be mistaken for the

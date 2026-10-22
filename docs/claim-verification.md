@@ -22,17 +22,18 @@ All commands run from the repository root after `pnpm install && pnpm build`.
 
 ## 2. Correctness
 
-| Claim                                                  | How to check                                | Expected                                                          |
-| ------------------------------------------------------ | ------------------------------------------- | ----------------------------------------------------------------- |
-| 700 unit tests pass                                    | `pnpm test`                                 | `Test Files 22 passed (22)`, `Tests 700 passed (700)`             |
-| 68 browser tests pass                                  | `pnpm test:e2e`                             | `68 passed`, across a desktop viewport and a Pixel 7              |
-| Coverage                                               | `pnpm coverage`                             | 92.8% statements, 85.27% branches, 96.29% functions, 94.29% lines |
-| Every example runs and matches its stated expectations | `pnpm examples`                             | `All 13 examples compile, run and are canonically formatted.`     |
-| Agreement with Qiskit on statevectors                  | `pnpm --filter @qforge/validation validate` | 33 circuits, worst amplitude difference 1.241e-16, 0 failures     |
-| Optimisation preserves the operator                    | same run, §4.2 of the report                | 33 circuits, worst 1.732e-16, 0 failures                          |
-| Teleportation agrees with Qiskit                       | same run, §4.4                              | TVD 0.00203 at 200,000 shots                                      |
-| Generated OpenQASM 3 loads into Qiskit                 | same run, §4.5                              | 42 of 42 files load and reconstruct                               |
-| Agreement with an out-of-language NumPy reference      | `pnpm verify:numpy`                         | No disagreements                                                  |
+| Claim                                                  | How to check                                                                                                           | Expected                                                          |
+| ------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| 700 unit tests pass                                    | `pnpm test`                                                                                                            | `Test Files 22 passed (22)`, `Tests 700 passed (700)`             |
+| 68 browser tests pass                                  | `pnpm test:e2e`                                                                                                        | `68 passed`, across a desktop viewport and a Pixel 7              |
+| Coverage                                               | `pnpm coverage`                                                                                                        | 92.8% statements, 85.27% branches, 96.29% functions, 94.29% lines |
+| The same suite passes on Firefox and WebKit            | `npx playwright install firefox webkit`, then `CROSS_BROWSER=1 npx playwright test --project=firefox --project=webkit` | `68 passed` on each                                               |
+| Every example runs and matches its stated expectations | `pnpm examples`                                                                                                        | `All 13 examples compile, run and are canonically formatted.`     |
+| Agreement with Qiskit on statevectors                  | `pnpm --filter @qforge/validation validate`                                                                            | 33 circuits, worst amplitude difference 1.241e-16, 0 failures     |
+| Optimisation preserves the operator                    | same run, §4.2 of the report                                                                                           | 33 circuits, worst 1.732e-16, 0 failures                          |
+| Teleportation agrees with Qiskit                       | same run, §4.4                                                                                                         | TVD 0.00203 at 200,000 shots                                      |
+| Generated OpenQASM 3 loads into Qiskit                 | same run, §4.5                                                                                                         | 42 of 42 files load and reconstruct                               |
+| Agreement with an out-of-language NumPy reference      | `pnpm verify:numpy`                                                                                                    | No disagreements                                                  |
 
 The Qiskit rows need the validation environment once:
 `pnpm --filter @qforge/validation setup`. It creates an isolated `.venv` with

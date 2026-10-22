@@ -58,6 +58,11 @@ git push origin v0.2.0
 CI runs three jobs on push — build/lint/test, the NumPy cross-check, and
 Playwright. A tag is not a release until all three are green on that commit.
 
+The Qiskit cross-validation is a fourth job and does **not** run on every push,
+because it needs a Python toolchain and about 90 MB of wheels. Trigger it for a
+release either by dispatching the workflow manually or by putting `[validate]`
+in the commit message.
+
 **Pushing is a published action.** It is done when the repository owner asks
 for it, not automatically at the end of a piece of work.
 
@@ -122,7 +127,8 @@ root; the others do not.
 
 ## 5. After a release
 
-- Check the three CI jobs on the tagged commit.
+- Check the three push jobs on the tagged commit, and the Qiskit job, which
+  has to be triggered (see §3).
 - Re-read `docs/claim-verification.md` top to bottom against the released
   artefact. It is a list of claims; a release is the moment they become public.
 - If a deployment exists, open it and run through §1 of

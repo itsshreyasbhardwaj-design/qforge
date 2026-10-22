@@ -98,7 +98,7 @@ Median of 7 timed repetitions after a warm-up, unless noted.
 
 ### The frontend is not the bottleneck
 
-10,000 gates compile end to end in about 24 ms, roughly 340,000 operations per
+10,000 gates compile end to end in 27.5 ms, about 330,000 operations per
 second. For any program a person will type, the frontend is free. The studio
 still debounces compilation by 160 ms because it runs on the main thread, but
 the cost is dominated by simulation, not parsing.

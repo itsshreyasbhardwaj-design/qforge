@@ -173,8 +173,11 @@ no telemetry. The compiler and simulator run in the browser.
 hosted anywhere static, and there is no server to secure or pay for. It also
 forces the packages to stay genuinely portable.
 
-**Cost.** Compilation and simulation run on the main thread, which is why the
-browser limit is 14 qubits. A Web Worker is the fix when that limit is raised.
+**Cost.** Everything competes with the UI for one process. Simulation and the
+step trace were moved into a Web Worker in 0.2, which removed the freezing;
+compilation still runs on the main thread, debounced by 160 ms. The 14-qubit
+browser limit survives for a different reason — the debugger stores a
+statevector per instruction — which [limitations.md](limitations.md) sets out.
 
 ---
 

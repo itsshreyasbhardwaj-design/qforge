@@ -332,6 +332,8 @@ width; a Playwright project runs the full suite against a Pixel 7 profile.
 pnpm test              # unit, property, conformance, integration
 pnpm coverage          # with coverage
 pnpm build && pnpm test:e2e   # browser tests (desktop + mobile)
+npx playwright install firefox webkit && \
+  CROSS_BROWSER=1 npx playwright test --project=firefox --project=webkit
 pnpm verify:numpy      # cross-check against NumPy, if installed
 pnpm --filter @qforge/validation setup && \
   pnpm --filter @qforge/validation validate   # cross-check against Qiskit

@@ -48,10 +48,17 @@ Deutsch-Jozsa variants ship as examples.
 | CLI            |    20 |      16 MiB |
 | Hard ceiling   |    26 |       1 GiB |
 
-The browser limit is conservative on purpose: compilation and simulation run on
-the main thread, and a 20-qubit circuit takes about 0.9 s for 390 gates on an
-M2 ([benchmarks.md](benchmarks.md)), which would make the editor feel broken.
-Raising it sensibly means moving the engine into a Web Worker first.
+The browser limit is conservative on purpose, but the reason changed in 0.2.
+Simulation and the step trace now both run in a Web Worker, so a long run no
+longer freezes the editor. What still binds is the debugger: it keeps one
+statevector **per instruction**, so that stepping backwards reads the recorded
+state rather than re-running and landing on a different sampled branch. At 14
+qubits that is 256 KiB a step; at 20 it would be 16 MiB a step, which the
+390-gate circuit in [benchmarks.md](benchmarks.md) turns into gigabytes.
+
+Compilation still runs on the main thread. It is fast — about 27 ms for 10,000
+gates — which is why the instruction cap (20,000) does the work there rather
+than the qubit cap.
 
 ## OpenQASM 3 backend
 

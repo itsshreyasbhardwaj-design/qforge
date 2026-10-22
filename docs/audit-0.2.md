@@ -16,21 +16,23 @@ pnpm 11.
 
 Reproduce in this order from a clean checkout.
 
-|   # | Command                                     | Observed                                                                                       |
-| --: | ------------------------------------------- | ---------------------------------------------------------------------------------------------- |
-|   1 | `pnpm install --frozen-lockfile`            | clean                                                                                          |
-|   2 | `pnpm build`                                | all four packages built                                                                        |
-|   3 | `pnpm typecheck`                            | no errors                                                                                      |
-|   4 | `pnpm lint`                                 | no errors, no warnings                                                                         |
-|   5 | `pnpm format:check`                         | "All matched files use Prettier code style!"                                                   |
-|   6 | `pnpm test`                                 | **700 passed**, 22 files                                                                       |
-|   7 | `pnpm coverage`                             | **92.8%** statements, 85.27% branches, 96.29% functions, 94.29% lines                          |
-|   8 | `pnpm examples`                             | "All 13 examples compile, run and are canonically formatted."                                  |
-|   9 | `pnpm test:e2e`                             | **68 passed** (desktop Chrome 1680x1000, and Pixel 7)                                          |
-|  10 | `pnpm verify:numpy`                         | all circuits agree; worst disagreement **5.551e-17**, tolerance 1e-12                          |
-|  11 | `pnpm --filter @qforge/validation validate` | "All mathematical comparisons agree with Qiskit"; **42 of 42** generated OpenQASM 3 files load |
+|   # | Command                                                                  | Observed                                                                                       |
+| --: | ------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------- |
+|   1 | `pnpm install --frozen-lockfile`                                         | clean                                                                                          |
+|   2 | `pnpm build`                                                             | all four packages built                                                                        |
+|   3 | `pnpm typecheck`                                                         | no errors                                                                                      |
+|   4 | `pnpm lint`                                                              | no errors, no warnings                                                                         |
+|   5 | `pnpm format:check`                                                      | "All matched files use Prettier code style!"                                                   |
+|   6 | `pnpm test`                                                              | **700 passed**, 22 files                                                                       |
+|   7 | `pnpm coverage`                                                          | **92.8%** statements, 85.27% branches, 96.29% functions, 94.29% lines                          |
+|   8 | `pnpm examples`                                                          | "All 13 examples compile, run and are canonically formatted."                                  |
+|   9 | `pnpm test:e2e`                                                          | **68 passed** (desktop Chrome 1680x1000, and Pixel 7)                                          |
+|  10 | `pnpm verify:numpy`                                                      | all circuits agree; worst disagreement **5.551e-17**, tolerance 1e-12                          |
+|  11 | `pnpm --filter @qforge/validation validate`                              | "All mathematical comparisons agree with Qiskit"; **42 of 42** generated OpenQASM 3 files load |
+|  12 | `CROSS_BROWSER=1 npx playwright test --project=firefox --project=webkit` | **68 passed** on each; the same suite, unmodified                                              |
 
-Step 11 needs its environment once:
+Step 12 needs `npx playwright install firefox webkit` once. Step 11 needs its
+environment once:
 `pnpm --filter @qforge/validation setup`.
 
 ### 1.1 Qiskit figures, as printed
@@ -63,14 +65,15 @@ the page's own origin. No CDN, no analytics, no telemetry.
 
 Listed because a phase that found nothing did not look.
 
-| Defect                                                                                                                                                                                                             | How it surfaced                                  | Severity                             |
-| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------ | ------------------------------------ |
-| Selecting an example and acting immediately drove the outgoing module; the debounced recompile then reset execution, so an existing teleportation assertion was silently reading the **initial state** and passing | a new test perturbed the timing and made it fail | real, and it had been masking a test |
-| The walkthrough panel vanished on a narrow layout the moment a step opened the panel it was describing                                                                                                             | mobile Playwright project                        | real, mobile only                    |
-| With the walkthrough pinned, the narrow Results panel was squeezed to 87px and its container did not scroll, so the Bloch table the lesson pointed at was unreachable                                              | browser inspection at 412x915                    | real, mobile only                    |
-| A preformatted block widened the landing page by 29px at 390px wide                                                                                                                                                | measured `scrollWidth - clientWidth`             | cosmetic                             |
-| The gate set was documented as 16 gates; it is 17 (`id` was omitted)                                                                                                                                               | counting the table in `gates.ts`                 | documentation                        |
-| A test read `window.monaco` without waiting for the loader to publish it                                                                                                                                           | mobile flake                                     | test-only                            |
+| Defect                                                                                                                                                                                                             | How it surfaced                                  | Severity                                                                 |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------ | ------------------------------------------------------------------------ |
+| Selecting an example and acting immediately drove the outgoing module; the debounced recompile then reset execution, so an existing teleportation assertion was silently reading the **initial state** and passing | a new test perturbed the timing and made it fail | real, and it had been masking a test                                     |
+| The walkthrough panel vanished on a narrow layout the moment a step opened the panel it was describing                                                                                                             | mobile Playwright project                        | real, mobile only                                                        |
+| With the walkthrough pinned, the narrow Results panel was squeezed to 87px and its container did not scroll, so the Bloch table the lesson pointed at was unreachable                                              | browser inspection at 412x915                    | real, mobile only                                                        |
+| A preformatted block widened the landing page by 29px at 390px wide                                                                                                                                                | measured `scrollWidth - clientWidth`             | cosmetic                                                                 |
+| The gate set was documented as 16 gates; it is 17 (`id` was omitted)                                                                                                                                               | counting the table in `gates.ts`                 | documentation                                                            |
+| A test read `window.monaco` without waiting for the loader to publish it                                                                                                                                           | mobile flake                                     | test-only                                                                |
+| The console-error test navigated a second time on top of the suite's own navigation, aborting in-flight chunk requests; Firefox logs that as `NS_BINDING_ABORTED` and WebKit as `Load failed`                      | the first Firefox and WebKit run                 | test-only — a single clean load logs nothing on any of the four browsers |
 
 The first is the one worth remembering: **a test that passes can still be
 broken**. It asserted a property of the final state while reading the initial
@@ -91,8 +94,10 @@ Stated so that nobody has to infer it from silence.
 - **Scale.** The Qiskit corpus stops at 5 qubits. A kernel bug that appears
   only above a word boundary would not be caught by it. The dense-matrix oracle
   covers more width but shares a repository and an author with the code.
-- **Browsers.** Both Playwright projects are Chromium — a desktop viewport and
-  a Pixel 7. Firefox and WebKit are untested.
+- **Browsers in CI.** The suite passes on Chromium (desktop and Pixel 7),
+  Firefox and WebKit, but only the two Chromium projects run in CI. A
+  regression appearing on Firefox alone would not be caught automatically;
+  it has to be checked with step 12 before a release.
 - **Adversarial numerics.** No evaluation of near-degenerate amplitudes,
   accumulated error over very long circuits, or denormals.
 - **OpenQASM 3 conformance in general.** Only that 42 of 42 generated files
