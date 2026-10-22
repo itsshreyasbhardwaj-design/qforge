@@ -24,7 +24,11 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - uses: pnpm/action-setup@v6
+      # Pinned to v4 deliberately. v6's self-installer fails on the current
+      # ubuntu-latest runner ("self-installer exits with code 1"), which took
+      # all three jobs down; v4 is green. The cost is a Node 20 deprecation
+      # warning on this step, which the runner handles by forcing Node 24.
+      - uses: pnpm/action-setup@v4
         with:
           version: 11.13.0
 
@@ -84,7 +88,11 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - uses: pnpm/action-setup@v6
+      # Pinned to v4 deliberately. v6's self-installer fails on the current
+      # ubuntu-latest runner ("self-installer exits with code 1"), which took
+      # all three jobs down; v4 is green. The cost is a Node 20 deprecation
+      # warning on this step, which the runner handles by forcing Node 24.
+      - uses: pnpm/action-setup@v4
         with:
           version: 11.13.0
 
@@ -114,7 +122,11 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - uses: pnpm/action-setup@v6
+      # Pinned to v4 deliberately. v6's self-installer fails on the current
+      # ubuntu-latest runner ("self-installer exits with code 1"), which took
+      # all three jobs down; v4 is green. The cost is a Node 20 deprecation
+      # warning on this step, which the runner handles by forcing Node 24.
+      - uses: pnpm/action-setup@v4
         with:
           version: 11.13.0
 
