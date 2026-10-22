@@ -1,5 +1,8 @@
 # QForge
 
+[![CI](https://github.com/itsshreyasbhardwaj-design/qforge/actions/workflows/ci.yml/badge.svg)](https://github.com/itsshreyasbhardwaj-design/qforge/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
 **Write quantum programs. Understand what they do.**
 
 A small programming language, a real compiler, an independent quantum simulator,
