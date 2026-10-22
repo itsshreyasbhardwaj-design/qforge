@@ -1,0 +1,26 @@
+{
+  "name": "@qforge/compiler",
+  "version": "0.1.0",
+  "description": "QForge middle end: quantum IR, verified optimisation passes and the OpenQASM 3 backend.",
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc -b",
+    "clean": "rm -rf dist *.tsbuildinfo"
+  },
+  "dependencies": {
+    "@qforge/language": "workspace:*"
+  }
+}

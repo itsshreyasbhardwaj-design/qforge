@@ -1,0 +1,76 @@
+name: Bug report
+description: Something behaves differently from what the documentation says
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. The most useful bug reports include the exact
+        `.qf` source and the command, so the behaviour can be reproduced
+        without guesswork.
+
+  - type: textarea
+    id: source
+    attributes:
+      label: QForge program
+      description: The smallest program that shows the problem.
+      render: text
+      placeholder: |
+        qubit q;
+        bit c;
+        h q;
+        measure q -> c;
+    validations:
+      required: true
+
+  - type: input
+    id: command
+    attributes:
+      label: Command
+      placeholder: qforge run bug.qf --shots 1000 --seed 42
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: What happened
+      render: text
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected, and why
+      description: |
+        If this is about measurement statistics, please run with `--exact` as
+        well. That prints the exact distribution with no sampling noise, which
+        usually distinguishes a real bug from ordinary sampling variance.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Which part
+      options:
+        - Lexer or parser (a diagnostic is wrong or missing)
+        - Semantic analysis (a program is wrongly accepted or rejected)
+        - Optimiser (a pass changed the circuit's behaviour)
+        - Simulator (the quantum result looks wrong)
+        - OpenQASM output
+        - CLI
+        - Studio (the browser app)
+        - Documentation
+        - Not sure
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Version and environment
+      placeholder: 'qforge 0.1.0, Node 22.11.0, macOS 15'
+    validations:
+      required: true

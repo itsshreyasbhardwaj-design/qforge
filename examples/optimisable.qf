@@ -1,0 +1,57 @@
+// A circuit written badly on purpose, to show the optimiser working.
+//
+// Concept
+//   Each line here is redundant in a way one of QForge's passes can prove.
+//   Compile it twice and compare:
+//
+//     qforge inspect examples/optimisable.qf --ir
+//     qforge inspect examples/optimisable.qf --optimized
+//
+//   The second prints the pass report explaining every removal.
+//
+// What each pass finds
+//   `h q[0]` twice            -> cancel-self-inverse (H H = I)
+//   `s` then `sdg`            -> cancel-inverse-pair (exact inverses)
+//   `rx(0.3)` then `rx(-0.3)` -> merge-rotations, then remove-identity
+//   `id q[1]`                 -> remove-identity
+//   `rz(4 * pi)`              -> remove-identity (a rotation is I at 4*pi)
+//   `rz(2 * pi)`              -> KEPT: at 2*pi a rotation is -I, not I
+//
+//   The barrier is a fence: the two `x q[1]` gates around it are *not*
+//   cancelled, because a barrier tells the optimiser not to reorder across it.
+//
+// Expected quantum behaviour
+//   The surviving circuit is `rz(2 * pi) q[0]; x q[1]; barrier; x q[1];`,
+//   whose net effect on |00> is to multiply by -1 - a global phase. So the
+//   measured distribution is identical to doing nothing at all.
+//
+// Expected measurement results
+//   `c` is 00 in 100% of shots, optimised or not. That equality is the point:
+//   the passes must not change what the program computes.
+//
+// @expect qubits=2 clbits=2 gates=11
+// @expect-outcome 00
+
+qubit[2] q;
+bit[2] c;
+
+h q[0];
+h q[0];
+
+s q[0];
+sdg q[0];
+
+rx(0.3) q[0];
+rx(-0.3) q[0];
+
+rz(4 * pi) q[0];
+rz(2 * pi) q[0];
+
+id q[1];
+
+x q[1];
+barrier;
+x q[1];
+
+measure q[0] -> c[0];
+measure q[1] -> c[1];

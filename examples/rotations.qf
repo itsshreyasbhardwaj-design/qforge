@@ -1,0 +1,39 @@
+// Rotations: continuous control over a qubit, and angle expressions.
+//
+// Concept
+//   Where X is a half-turn about the X axis of the Bloch sphere, rx(theta) is a
+//   turn by any angle. This is how a qubit is tuned to an arbitrary
+//   superposition rather than just an equal one.
+//
+//   `const` lets an angle be named once and reused. Angle expressions are
+//   evaluated at compile time, so the IR contains a plain number: run
+//   `qforge inspect examples/rotations.qf --ir` to see that.
+//
+// Expected quantum behaviour
+//   ry(theta)|0> = cos(theta/2)|0> + sin(theta/2)|1>.
+//   With theta = pi/3: cos(pi/6) = sqrt(3)/2 and sin(pi/6) = 1/2, so the
+//   probability of outcome 1 is exactly 1/4.
+//
+// Expected measurement results
+//   `result` is 1 in about 25% of shots and 0 in about 75%.
+//
+// Mathematical interpretation
+//   The half-angle is not a typo: a rotation by 2*pi returns -I, not I, and a
+//   qubit needs a full 4*pi to come back to itself. That factor of two is why
+//   QForge's optimiser only cancels a rotation at multiples of 4*pi — see
+//   docs/compiler-design.md.
+//
+// @expect qubits=1 clbits=1 gates=1
+// @expect-state |0>=0.75
+// @expect-state |1>=0.25
+// @expect-support 0,1
+// @expect-frequency 1=0.25
+
+const theta = pi / 3;
+
+qubit q;
+bit result;
+
+ry(theta) q;
+
+measure q -> result;

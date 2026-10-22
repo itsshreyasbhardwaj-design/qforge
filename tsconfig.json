@@ -1,0 +1,9 @@
+{
+  "files": [],
+  "references": [
+    { "path": "./packages/language" },
+    { "path": "./packages/compiler" },
+    { "path": "./packages/simulator" },
+    { "path": "./packages/cli" }
+  ]
+}

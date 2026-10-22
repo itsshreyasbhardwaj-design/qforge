@@ -1,0 +1,41 @@
+{
+  "name": "qforge-monorepo",
+  "version": "0.1.0",
+  "private": true,
+  "description": "QForge: a quantum programming language, compiler, statevector simulator and interactive debugger.",
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=20.9.0"
+  },
+  "packageManager": "pnpm@11.13.0",
+  "scripts": {
+    "build": "pnpm -r --filter './packages/*' build",
+    "build:studio": "pnpm --filter @qforge/studio build",
+    "typecheck": "tsc -b packages/language packages/compiler packages/simulator packages/cli --pretty",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "coverage": "vitest run --coverage",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "bench": "node --expose-gc scripts/benchmark.mjs",
+    "verify:numpy": "node scripts/numpy-reference.mjs",
+    "examples": "node scripts/check-examples.mjs",
+    "dev": "pnpm --filter @qforge/studio dev",
+    "test:e2e": "playwright test",
+    "test:e2e:install": "playwright install chromium"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@playwright/test": "1.64.1",
+    "@types/node": "24.10.1",
+    "@vitest/coverage-v8": "5.0.5",
+    "eslint": "10.13.0",
+    "globals": "16.5.0",
+    "prettier": "3.9.10",
+    "typescript": "5.9.3",
+    "typescript-eslint": "8.72.0",
+    "vitest": "5.0.5"
+  }
+}

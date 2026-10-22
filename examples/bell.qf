@@ -1,0 +1,42 @@
+// Bell state: entanglement, and measurement correlation.
+//
+// Concept
+//   H puts `alice` into superposition; CX then flips `bob` exactly when `alice`
+//   is 1. The result cannot be written as "alice is in some state and bob is in
+//   some state" — the two qubits only have a joint description. That is
+//   entanglement.
+//
+// Expected quantum behaviour
+//   (|00> + |11>)/sqrt(2). Each qubit on its own is maximally mixed: its
+//   reduced density matrix is I/2, and its Bloch vector has length 0.
+//
+// Expected measurement results
+//   Only 00 and 11 ever appear, roughly 50% each. 01 and 10 never appear. The
+//   two measurements are perfectly correlated no matter which is performed
+//   first, and no matter how far apart the qubits are.
+//
+// Mathematical interpretation
+//   |00> -> H on qubit 0 -> (|00> + |01>)/sqrt 2 (in |q1 q0> labelling)
+//        -> CX(0 -> 1)   -> (|00> + |11>)/sqrt 2
+//
+//   The state has Schmidt rank 2, which is the formal statement that it does
+//   not factorise.
+//
+// @expect qubits=2 clbits=2 gates=2
+// @expect-state |00>=0.5
+// @expect-state |11>=0.5
+// @expect-support 00,11
+// @expect-frequency 00=0.5
+// @expect-frequency 11=0.5
+
+qubit alice;
+qubit bob;
+
+bit resultA;
+bit resultB;
+
+h alice;
+cx alice, bob;
+
+measure alice -> resultA;
+measure bob -> resultB;

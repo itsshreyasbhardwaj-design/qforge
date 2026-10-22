@@ -1,0 +1,45 @@
+// Phase kickback: the mechanism behind most quantum algorithms.
+//
+// Concept
+//   A controlled gate whose target is already an eigenstate of the controlled
+//   operation does not change the target at all. Instead the eigenvalue is fed
+//   back onto the *control* as a phase, where a Hadamard can turn it into a
+//   measurable bit.
+//
+// Expected quantum behaviour
+//   `q[1]` is prepared in |-> = (|0> - |1>)/sqrt(2), which is an eigenstate of
+//   X with eigenvalue -1. (Note: of X, not of Z - the Z eigenstates are the
+//   boring |0> and |1>.) The controlled-X then multiplies the |1> branch of
+//   `q[0]` by -1 while leaving `q[1]` exactly where it was. The final H on
+//   `q[0]` converts that relative phase into a definite outcome.
+//
+// Expected measurement results
+//   `c` is 1 in 100% of shots, and `q[1]` is still in |-> at the end.
+//
+// Mathematical interpretation
+//   Before the CX the state is |+>|-> = (1/sqrt2)(|0> + |1>) tensor |->.
+//   Since X|-> = -|->, the CX sends this to
+//
+//     (1/sqrt2)(|0>|-> - |1>|->) = |-> tensor |->
+//
+//   which is still a *product* state: the qubits are not entangled, the phase
+//   simply moved to the control. H then maps |-> to |1>.
+//
+//   This is exactly the step that makes Deutsch-Jozsa and phase estimation
+//   work; `deutsch-jozsa.qf` is the same idea with a two-bit oracle.
+//
+// @expect qubits=2 clbits=1 gates=5
+// @expect-outcome 1
+
+qubit[2] q;
+bit c;
+
+// Put the target into the X eigenstate |->, whose eigenvalue is -1.
+x q[1];
+h q[1];
+
+h q[0];
+cx q[0], q[1];
+h q[0];
+
+measure q[0] -> c;

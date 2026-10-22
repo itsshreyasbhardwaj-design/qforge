@@ -1,0 +1,44 @@
+// Mid-circuit measurement: collapse, and what `reset` really does.
+//
+// Concept
+//   A measurement is not a passive read. It collapses the state, and everything
+//   after it evolves from the collapsed state. This circuit measures, resets,
+//   and measures again, so the two classical bits are *independent* coin flips
+//   rather than correlated ones.
+//
+//   `reset` is a measurement whose result is discarded, followed by a flip if
+//   the result was 1. It is not a projection onto |0>, and the difference
+//   matters for an entangled qubit.
+//
+// Expected quantum behaviour
+//   After the first H and measure, the qubit is definitely 0 or 1. `reset`
+//   returns it to |0> regardless. The second H then produces a fresh 50/50
+//   superposition that knows nothing about the first outcome.
+//
+// Expected measurement results
+//   All four of 00, 01, 10 and 11 occur, each about 25% of shots. Because this
+//   circuit has a mid-circuit measurement, the simulator replays it once per
+//   shot rather than sampling from a single final statevector - `qforge run`
+//   prints which strategy it used.
+//
+// Mathematical interpretation
+//   The joint distribution factorises as P(c0, c1) = P(c0) * P(c1) with each
+//   marginal uniform, precisely because the reset erased the correlation. Drop
+//   the `reset` and the second measurement would instead agree with the first
+//   every time, since measurement is repeatable.
+//
+// @expect qubits=1 clbits=2 gates=2
+// @expect-support 00,01,10,11
+// @expect-frequency 00=0.25
+// @expect-frequency 11=0.25
+
+qubit q;
+bit[2] c;
+
+h q;
+measure q -> c[0];
+
+reset q;
+
+h q;
+measure q -> c[1];

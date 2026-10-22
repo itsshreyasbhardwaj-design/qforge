@@ -1,0 +1,35 @@
+// Interference: why amplitudes are more fundamental than probabilities.
+//
+// Concept
+//   Apply H, then Z, then H. After the first H the qubit is a 50/50
+//   superposition. If it were merely "randomly 0 or 1", the second H would
+//   leave it 50/50 as well. It does not: the result is deterministically |1>.
+//
+//   Z flips the *sign* of the |1> amplitude. The second H then has the two
+//   paths cancel on |0> and reinforce on |1>. A classical coin cannot do this,
+//   because probabilities cannot be negative.
+//
+// Expected quantum behaviour
+//   Deterministic |1>, up to a global phase.
+//
+// Expected measurement results
+//   `result` is 1 in 100% of shots. Compare with `superposition.qf`, which is
+//   the same circuit without the Z.
+//
+// Mathematical interpretation
+//   H Z H = X, since Z = H X H and H is its own inverse. Explicitly:
+//   H|0> = (|0> + |1>)/sqrt 2, then Z gives (|0> - |1>)/sqrt 2, then H gives
+//   |1>. The amplitude of |0> is (1/sqrt2)(1/sqrt2) + (-1/sqrt2)(1/sqrt2) = 0.
+//
+// @expect qubits=1 clbits=1 gates=3
+// @expect-state |1>=1.0
+// @expect-outcome 1
+
+qubit q;
+bit result;
+
+h q;
+z q;
+h q;
+
+measure q -> result;

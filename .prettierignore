@@ -1,0 +1,9 @@
+dist
+.next
+coverage
+pnpm-lock.yaml
+examples
+apps/studio/out
+apps/studio/lib/examples.generated.ts
+test-results
+playwright-report

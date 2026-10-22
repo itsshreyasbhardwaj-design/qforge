@@ -1,0 +1,50 @@
+name: Feature request
+description: Suggest a language feature, gate, pass or tool
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please read [docs/limitations.md](../blob/main/docs/limitations.md)
+        first. Several common requests — classical control flow, user-defined
+        gates, noise models — are deliberate omissions with the reasoning
+        written down. Arguing against that reasoning is welcome; it just saves
+        time to start from it.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What are you trying to do that you cannot do today?
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed syntax or behaviour
+      render: text
+    validations:
+      required: true
+
+  - type: textarea
+    id: semantics
+    attributes:
+      label: Semantics
+      description: |
+        For a language feature: what does it mean, exactly? For a gate: what is
+        its matrix? For a pass: why is the rewrite valid, and under what
+        conditions is it *not*?
+
+        QForge's rule is that a pass must preserve the circuit's operator
+        including global phase, not just its measurement statistics.
+    validations:
+      required: true
+
+  - type: textarea
+    id: scope
+    attributes:
+      label: What would this touch?
+      description: |
+        Frontend, IR, passes, simulator, OpenQASM backend, docs? The
+        "Adding a gate" section of CONTRIBUTING.md is a worked example of how
+        wide a change like this usually is.

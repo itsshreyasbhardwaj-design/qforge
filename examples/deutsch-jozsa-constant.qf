@@ -1,0 +1,41 @@
+// Deutsch-Jozsa with a constant oracle.
+//
+// Concept
+//   The same circuit as `deutsch-jozsa.qf`, but the oracle implements the
+//   constant function f(x) = 1. Reading 00 proves the function is constant;
+//   reading anything else proves it is balanced. One query decides it.
+//
+// Expected quantum behaviour
+//   A constant f contributes the *same* phase to every input branch, which is a
+//   global phase and therefore unobservable. The input register is returned
+//   exactly to |00> by the final Hadamards.
+//
+// Expected measurement results
+//   `result` is 00 in 100% of shots.
+//
+// Mathematical interpretation
+//   f(x) = 1 for all x, so (-1)^f(x) = -1 uniformly. The input register state
+//   is -1 times the equal superposition, and H on each qubit maps the equal
+//   superposition back to |00>. The leading minus sign is a global phase: it
+//   changes no probability.
+//
+// @expect qubits=3 clbits=2 gates=7
+// @expect-outcome 00
+
+qubit[3] q;
+bit[2] result;
+
+x q[2];
+h q[2];
+
+h q[0];
+h q[1];
+
+// Oracle for the constant function f(x) = 1: flip the output regardless of x.
+x q[2];
+
+h q[0];
+h q[1];
+
+measure q[0] -> result[0];
+measure q[1] -> result[1];

@@ -1,0 +1,54 @@
+// Deutsch-Jozsa: a provable quantum advantage, in one query.
+//
+// Concept
+//   You are given a black-box function f on 2-bit inputs, promised to be either
+//   *constant* (same output for every input) or *balanced* (output 0 for half
+//   the inputs and 1 for the other half). Classically, telling which can take
+//   3 queries in the worst case. This circuit does it with 1.
+//
+//   The oracle here implements the balanced function f(x) = x0 XOR x1, built
+//   from two CNOTs onto the output qubit.
+//
+// Expected quantum behaviour
+//   The output qubit is prepared in |->, so the oracle writes (-1)^f(x) as a
+//   phase onto each input branch instead of changing the output bit. The final
+//   Hadamards turn that phase pattern into a definite bit string.
+//
+// Expected measurement results
+//   The input register reads 11 in 100% of shots. A non-zero result proves f is
+//   balanced. Compare `deutsch-jozsa-constant.qf`, which reads 00 every time.
+//
+// Mathematical interpretation
+//   After the Hadamards and the oracle the input register holds
+//   (1/2) * sum over x of (-1)^f(x) |x>. Applying H to each input qubit gives
+//   amplitude (1/4) * sum over x of (-1)^(f(x) + x.z) on |z>.
+//
+//   For f(x) = x.a with a = 11, the sum is 4 when z = a and 0 otherwise, so the
+//   measurement returns the hidden string a with certainty. For constant f the
+//   same sum concentrates entirely on z = 00.
+//
+//   This is the smallest honest example of interference doing computational
+//   work: every branch is computed, and the wrong answers cancel.
+//
+// @expect qubits=3 clbits=2 gates=8
+// @expect-outcome 11
+
+qubit[3] q;
+bit[2] result;
+
+// q[0], q[1] are the function input; q[2] is the oracle's output qubit.
+x q[2];
+h q[2];
+
+h q[0];
+h q[1];
+
+// Oracle for the balanced function f(x) = x0 XOR x1.
+cx q[0], q[2];
+cx q[1], q[2];
+
+h q[0];
+h q[1];
+
+measure q[0] -> result[0];
+measure q[1] -> result[1];

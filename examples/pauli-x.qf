@@ -1,0 +1,28 @@
+// Pauli-X: the quantum NOT gate.
+//
+// Concept
+//   X exchanges |0> and |1>. On a basis state it behaves exactly like a
+//   classical bit flip, which makes it the right place to start: not everything
+//   quantum is probabilistic.
+//
+// Expected quantum behaviour
+//   The qubit ends in |1>, so measurement yields 1 every single time. There is
+//   no randomness here at all.
+//
+// Expected measurement results
+//   `result` is 1 in 100% of shots.
+//
+// Mathematical interpretation
+//   X = [[0, 1], [1, 0]], so X|0> = |1>. The outcome probability is
+//   |<1|X|0>|^2 = 1.
+//
+// @expect qubits=1 clbits=1 gates=1
+// @expect-state |1>=1.0
+// @expect-outcome 1
+
+qubit q;
+bit result;
+
+x q;
+
+measure q -> result;

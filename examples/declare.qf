@@ -1,0 +1,23 @@
+// Declarations: the smallest valid QForge program that reserves resources.
+//
+// Concept
+//   A `qubit` declaration reserves one two-level quantum system, initialised to
+//   |0>. A `bit` declaration reserves one classical bit, initialised to 0.
+//   Nothing has been done to them yet, so the state is exactly |00>.
+//
+// Expected quantum behaviour
+//   The state stays |00> with probability 1. Declaring a qubit is not an
+//   operation on it.
+//
+// Mathematical interpretation
+//   Two qubits span a 4-dimensional complex vector space. The state is the
+//   basis vector (1, 0, 0, 0): amplitude 1 on |00>, zero elsewhere.
+//
+// @expect qubits=2 clbits=1 gates=0
+// @expect-state |00>=1.0
+// @expect-outcome 0
+
+qubit alice;
+qubit bob;
+
+bit result;

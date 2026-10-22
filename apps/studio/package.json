@@ -1,0 +1,31 @@
+{
+  "name": "@qforge/studio",
+  "version": "0.1.0",
+  "private": true,
+  "description": "QForge Studio: a browser development environment for the QForge quantum language.",
+  "type": "module",
+  "scripts": {
+    "prebuild": "node ../../scripts/generate-studio-examples.mjs",
+    "predev": "node ../../scripts/generate-studio-examples.mjs",
+    "dev": "next dev --port 3147",
+    "build": "next build",
+    "start": "next start --port 3147"
+  },
+  "dependencies": {
+    "@monaco-editor/react": "4.7.0",
+    "@qforge/compiler": "workspace:*",
+    "@qforge/language": "workspace:*",
+    "@qforge/simulator": "workspace:*",
+    "monaco-editor": "0.57.0",
+    "next": "16.4.2",
+    "react": "19.3.1",
+    "react-dom": "19.3.1"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "4.3.3",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "tailwindcss": "4.3.3",
+    "typescript": "5.9.3"
+  }
+}

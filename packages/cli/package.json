@@ -1,0 +1,38 @@
+{
+  "name": "qforge",
+  "version": "0.1.0",
+  "description": "Command-line tools for the QForge quantum programming language: check, run, compile, inspect and format.",
+  "license": "MIT",
+  "type": "module",
+  "bin": {
+    "qforge": "./dist/bin.js"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "keywords": [
+    "quantum",
+    "compiler",
+    "openqasm",
+    "simulator",
+    "dsl"
+  ],
+  "scripts": {
+    "build": "tsc -b",
+    "clean": "rm -rf dist *.tsbuildinfo"
+  },
+  "dependencies": {
+    "@qforge/compiler": "workspace:*",
+    "@qforge/language": "workspace:*",
+    "@qforge/simulator": "workspace:*"
+  }
+}

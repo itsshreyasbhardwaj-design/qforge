@@ -1,0 +1,34 @@
+// Hadamard: creating a superposition.
+//
+// Concept
+//   H maps |0> to an equal superposition of |0> and |1>. The qubit is not
+//   secretly in one of the two states — it is in both, with equal amplitude,
+//   and that distinction is what `interference.qf` makes observable.
+//
+// Expected quantum behaviour
+//   Amplitudes 1/sqrt(2) on each of |0> and |1>.
+//
+// Expected measurement results
+//   0 and 1 each about 50% of shots. Any individual shot is one or the other.
+//
+// Mathematical interpretation
+//   H = (1/sqrt 2) [[1, 1], [1, -1]], so H|0> = (|0> + |1>)/sqrt(2).
+//   The Born rule gives |1/sqrt(2)|^2 = 1/2 for each outcome.
+//
+//   Note the amplitude is 0.7071, not 0.5. Amplitudes are square roots of
+//   probabilities, and they can be negative or complex — which probabilities
+//   cannot.
+//
+// @expect qubits=1 clbits=1 gates=1
+// @expect-state |0>=0.5
+// @expect-state |1>=0.5
+// @expect-support 0,1
+// @expect-frequency 0=0.5
+// @expect-frequency 1=0.5
+
+qubit q;
+bit result;
+
+h q;
+
+measure q -> result;
